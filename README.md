@@ -77,4 +77,4 @@ This project is freely available, but if you wish to support its development the
 
 ___
 
-###### ©️ 2023 Adam D., license: MIT
+###### © 2023 Adam D., license: MIT
