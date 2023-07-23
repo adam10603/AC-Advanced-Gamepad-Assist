@@ -16,3 +16,6 @@ You can install the mod in two ways:
 
  - Open the "Advanced Gamepad Assist" folder, and copy the two folders that are inside ("apps" and "extension").
  - Go to your main "assettocorsa" folder and paste the two folders you copied.
+
+For more info on using and configuring the assist, visit the project's Github page:
+https://github.com/adam10603/AC-Advanced-Gamepad-Assist
