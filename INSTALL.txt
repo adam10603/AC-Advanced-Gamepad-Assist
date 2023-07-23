@@ -1,0 +1,18 @@
+If you have a previous version of this mod installed, it's a good idea to remove that first.
+You can remove it by deleting the following folders:
+ - assettocorsa/apps/lua/Advanced Gamepad Assist Config
+ - assettocorsa/extension/lua/joypad-assist/Advanced Gamepad Assist
+ - assettocorsa/mods/Advanced Gamepad Assist
+
+You can install the mod in two ways:
+
+1. If you own the full (paid) version of Content Manager:
+
+ - Copy the "Advanced Gamepad Assist" folder, and paste it inside the "assettocorsa/mods" folder (create the "mods" folder by hand if you don't see it).
+ - Open Content Manager, go to Content on the upper right, then click on Mods on the upper left.
+ - Make sure that Advanced Gamepad Assist is enabled (should be on the right side).
+
+2. If you have the lite (free) version of Content Manager:
+
+ - Open the "Advanced Gamepad Assist" folder, and copy the two folders that are inside ("apps" and "extension").
+ - Go to your main "assettocorsa" folder and paste the two folders you copied.
