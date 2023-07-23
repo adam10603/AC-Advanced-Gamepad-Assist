@@ -29,6 +29,8 @@ As to why assists like this are needed in general, that boils down to overcoming
 
 This mod requires [***Content Manager***](https://assettocorsa.club/content-manager.html) and [***Custom Shaders Patch***](https://acstuff.ru/patch/) to be installed!
 
+First, download the latest version of the mod from the [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) section.
+
 > If you have a previous version of this mod installed, it's a good idea to remove that first. You can remove it by deleting the following folders:
 >  - `assettocorsa/apps/lua/Advanced Gamepad Assist Config`
 >  - `assettocorsa/extension/lua/joypad-assist/Advanced Gamepad Assist`
