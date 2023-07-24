@@ -6,15 +6,15 @@
 
 ## 🖊️ Intro
 
-This is a mod for Assetto Corsa that provides a steering assist system for players who use a controller. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on a controller regardless of skill level.
+This is a mod for Assetto Corsa that provides a steering assist system for players on a controller. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on a controller regardless of skill level.
 
-It works in single player as well as on any online server you can think of.
+It works in single player as well as on any online server.
 
 The main features of this mod include:
 
  - Accurate steering limit, based on the optimal slip angle of the font tires
- - Self-steer tendency that mimics the effects of the car's caster angle and greatly helps with stability
- - Highly customizable settings through a UI app, so you can dial in the steering feel you prefer
+ - Self-steer tendency that mimics the effects of the car's caster angle and helps with stability
+ - Highly customizable settings through a UI app
  - Real-time readouts of tire slip and more through the UI app
 
 ## 📖 Why?
@@ -29,45 +29,40 @@ As to why assists like this are needed in general, that boils down to overcoming
 
 This mod requires [***Content Manager***](https://assettocorsa.club/content-manager.html) and [***Custom Shaders Patch***](https://acstuff.ru/patch/) to be installed!
 
-First, download the latest version of the mod from the [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) section.
-
-> If you have a previous version of this mod installed, it's a good idea to remove that first. You can remove it by deleting the following folders:
->  - `assettocorsa/apps/lua/Advanced Gamepad Assist Config`
->  - `assettocorsa/extension/lua/joypad-assist/Advanced Gamepad Assist`
->  - `assettocorsa/mods/Advanced Gamepad Assist`
+First, download the latest version from [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) or from [***RaceDepartment***](https://www.racedepartment.com/downloads/advanced-gamepad-assist.62485/).
 
 You can install the mod in two ways:
+
+#### If you have the lite (free) version of Content Manager:
+
+ - Open the `Advanced Gamepad Assist` folder, and copy the `apps` and `extension` folders.
+ - Paste the two folders into your main `assettocorsa` folder.
 
 #### If you own the full (paid) version of Content Manager:
 
  - Copy the `Advanced Gamepad Assist` folder, and paste it inside the `assettocorsa/mods` folder.
-   - If you don't see the `mods` folder then create it by hand.
- - Open ***Content Manager***, go to ***Content*** on the upper right, then click on ***Mods*** on the upper left.
+   - If you don't see the `mods` folder then create it.
+ - Open ***Content Manager***, go to ***Content*** on the upper right, then to ***Mods*** on the upper left.
  - Make sure that ***Advanced Gamepad Assist*** is enabled (should be on the right side).
-
-#### If you have the lite (free) version of Content Manager:
-
- - Open the `Advanced Gamepad Assist` folder, and copy the two folders that are inside (`apps` and `extension`).
- - Go to your main `assettocorsa` folder and paste the two folders you copied.
 
 ## 🛠 Setup
 
- - Open ***Content Manager***, and go to ***Settings*** on the upper right, then click ***Gamepad FX*** on the left side.
+ - Open ***Content Manager***, go to ***Settings*** on the upper right, then ***Custom Shaders Patch*** on the upper left, and ***Gamepad FX*** on the left.
  - Make sure ***Active*** is checked, and select the ***Advanced Gamepad Assist*** script.
 
 That's pretty much it, the assist should be working now.
 
-As far as the sliders in Assetto Corsa's own control settings go, only the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders will be active. The other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
+In AC's own control settings, you can set the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders to your liking, but the other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
 
 ![Control settings](https://i.imgur.com/rP0NoyC.png)
 
-Feel free to set up the remaining control settings according to your preference. Beyond this, any further configuration is done through the UI app in-game.
+Beyond this, any further configuration is done through the UI app in-game.
 
 ## 🎮 Usage
 
 When you first start driving a car, a quick steering calibration will take place to ensure the assist can work properly. You won't be able to drive while this is happening, but it only lasts a second or so.
 
-If you want to tweak the steering feel, you can that through the in-game UI app called ***Advanced Gamepad Assist Config***. You can add it to your UI through the apps menu in the top right corner.
+If you want to tweak the steering feel, you can add the UI app called ***Advanced Gamepad Assist Config*** from the side menu in-game.
 
 ![Adding the UI app](https://i.imgur.com/Ffms6Rd.png)
 
