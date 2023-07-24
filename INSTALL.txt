@@ -1,21 +1,18 @@
-If you have a previous version of this mod installed, it's a good idea to remove that first.
-You can remove it by deleting the following folders:
- - assettocorsa/apps/lua/Advanced Gamepad Assist Config
- - assettocorsa/extension/lua/joypad-assist/Advanced Gamepad Assist
- - assettocorsa/mods/Advanced Gamepad Assist
 
-You can install the mod in two ways:
+If you have the lite (free) version of Content Manager:
+ - Open the "Advanced Gamepad Assist" folder, and copy the "apps" and "extension" folders.
+ - Paste the two folders into your main "assettocorsa" folder.
 
-1. If you own the full (paid) version of Content Manager:
-
- - Copy the "Advanced Gamepad Assist" folder, and paste it inside the "assettocorsa/mods" folder (create the "mods" folder by hand if you don't see it).
- - Open Content Manager, go to Content on the upper right, then click on Mods on the upper left.
+If you own the full (paid) version of Content Manager:
+ - Copy the "Advanced Gamepad Assist" folder inside the "assettocorsa/mods" folder (create the "mods" folder if you don't see it).
+ - Open Content Manager, go to Content on the upper right, then to Mods on the upper left.
  - Make sure that Advanced Gamepad Assist is enabled (should be on the right side).
 
-2. If you have the lite (free) version of Content Manager:
+Once you've installed the assist, you have to make sure it's active:
+ - Open Content Manager, go to Settings on the upper right, then Custom Shaders Patch on the upper left, and Gamepad FX on the left.
+ - Make sure Active is checked, and select the Advanced Gamepad Assist script.
 
- - Open the "Advanced Gamepad Assist" folder, and copy the two folders that are inside ("apps" and "extension").
- - Go to your main "assettocorsa" folder and paste the two folders you copied.
+If you want to adjust the steering feel, add the UI app called Advanced Gamepad Assist Config from the side menu in-game!
 
 For more info on using and configuring the assist, visit the project's Github page:
 https://github.com/adam10603/AC-Advanced-Gamepad-Assist
