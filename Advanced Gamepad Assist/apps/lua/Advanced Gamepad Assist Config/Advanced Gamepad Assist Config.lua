@@ -7,7 +7,9 @@ local uiData = ac.connect{
     _selfSteerStrength       = ac.StructItem.double(),
     _frontNdSlip             = ac.StructItem.double(),
     _rearNdSlip              = ac.StructItem.double(),
+    _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
+    keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and break assist
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
@@ -25,6 +27,7 @@ local tooltips = {
     graphs                   = "Displays useful graphs to visualize what the assist is doing.\nThey can either be static or updated with live values.",
     assistEnabled            = "Enables or disables the assist.\nIf unchecked, AC's built-in input processing is used without alterations.",
     useFilter                = "Provides a single slider that will adjust most settings automatically for you.",
+    keyboardMode             = "Enables gas, brake and steering input on keyboard.\nYou can also choose to have brake or gas assistance when ABS or TCS are off. These aren't as good as ABS or TCS, they just somewhat compensate for not having analog input.\nFor every vehicle control to work (like shifting or handbrake), you also have to enable the \"Combine with keyboard\" option in AC's control settings!",
     filterSetting            = "How much steering assistance you want in general.\nNote that 0% does not mean the assist is off, it's just a lower level of assistance.",
     steeringRate             = "How fast the steering is in general.",
     rateIncreaseWithSpeed    = "How much slower or faster the steering will get as you speed up.",
@@ -58,6 +61,8 @@ local barPadding         = 25
 local barLiveColor       = controlAccentColor
 local barBorderColor     = black
 local barCenterColor     = graphLiveColor
+local barHighColor       = rgbm(1.0, 0.0, 0.0, 1.0)
+local barLowColor        = rgbm(140/255, 156/255, 171/255, 1)
 
 local zeroVec = vec2() -- Do not modify
 local tmpVec1 = vec2()
@@ -138,7 +143,7 @@ end
 local function showCompactDropdown(label, tooltipKey, values, selectedIndex)
     ui.offsetCursorX(sectionPadding)
     ui.pushItemWidth(ui.availableSpaceX() * 0.5)
-    local selection = ui.combo(label, selectedIndex, ui.ComboFlags.NoPreview, values)
+    local selection = ui.combo(string.format("%s - %s", label, values[selectedIndex]), selectedIndex, ui.ComboFlags.NoPreview, values)
     addTooltipToLastItem(tooltipKey)
     ui.popItemWidth()
     return selection + 0
@@ -148,7 +153,7 @@ local function sendRecalibrationEvent()
     ac.broadcastSharedEvent("AGA_calibrateSteering")
 end
 
-local function showBar(title, upperLeft, size, xMin, xMax, xDiv, xHighlight, liveXValue)
+local function showBar(title, upperLeft, size, xMin, xMax, xDiv, lowColor, highColor, xHighlight, liveXValue)
     ui.toolWindow(title, upperLeft, size, true, function ()
         ui.pushFont(ui.Font.Small)
 
@@ -174,14 +179,22 @@ local function showBar(title, upperLeft, size, xMin, xMax, xDiv, xHighlight, liv
             ui.setCursor(zeroVec)
         end
 
-        ui.drawLine(tmpVec1:set(math.round(barPadding + xPPU * (xHighlight - xMin)) or 0, barPadding), tmpVec2:set(tmpVec1.x, size.y - barPadding), barCenterColor)
+        if xHighlight then ui.drawLine(tmpVec1:set(math.round(barPadding + xPPU * (xHighlight - xMin)) or 0, barPadding), tmpVec2:set(tmpVec1.x, size.y - barPadding), barCenterColor) end
 
         if liveXValue then
             local liveLineXPos = math.round(barPadding + (liveXValue - xMin) / xRange * barWidth) or 0
-            local xPosTooHigh = not (liveLineXPos < size.x - barPadding)
-            if liveLineXPos > barPadding and not xPosTooHigh then
-                ui.drawLine(tmpVec1:set(liveLineXPos, barPadding + 1), tmpVec2:set(liveLineXPos, size.y - barPadding - 1), barLiveColor, 3)
+            local tooLow = liveLineXPos < barPadding + 2
+            local tooHigh = liveLineXPos > (size.x - barPadding - 3)
+            local barColor = barLiveColor
+            if tooHigh and highColor then
+                liveLineXPos = size.x - barPadding - 3
+                barColor = highColor
             end
+            if tooLow and lowColor then
+                liveLineXPos = barPadding + 2
+                barColor = lowColor
+            end
+            if (tooLow or lowColor) and (tooHigh or highColor) then ui.drawLine(tmpVec1:set(liveLineXPos, barPadding + 1), tmpVec2:set(liveLineXPos, size.y - barPadding - 1), barColor, 3) end
         end
 
         ui.drawRect(tmpVec1:set(barPadding, barPadding), tmpVec2:set(size.x - barPadding, size.y - barPadding), white)
@@ -287,15 +300,19 @@ end
 
 local function drawSelfSteerCurve()
     local liveAngle = (graphSelection == 3) and math.abs(uiData._localHVelAngle) or nil
-    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(320, 320), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, selfSteerCurveCallback, liveAngle, 3)
+    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, selfSteerCurveCallback, liveAngle, 3)
+end
+
+local function drawLimitReductionBar()
+    showBar("Dynamic limit reduction (deg)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 299), vec2(300, 75), -10.0, 0.0, 1.0, barLiveColor, barLiveColor, -uiData.maxDynamicLimitReduction, -uiData._limitReduction)
 end
 
 local function drawFrontSlipBar()
-    showBar("Relative front slip (%)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 319), vec2(320, 80), 50.0, 150.0, 10.0, 100.0, uiData._frontNdSlip * 100.0)
+    showBar("Relative front slip (%)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 373), vec2(300, 75), 50.0, 150.0, 10.0, barLowColor, barHighColor, 100.0, uiData._frontNdSlip * 100.0)
 end
 
 local function drawRearSlipBar()
-    showBar("Relative rear slip (%)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 398), vec2(320, 80), 50.0, 150.0, 10.0, 100.0, uiData._rearNdSlip * 100.0)
+    showBar("Relative rear slip (%)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 447), vec2(300, 75), 50.0, 150.0, 10.0, barLowColor, barHighColor, 100.0, uiData._rearNdSlip * 100.0)
 end
 
 function script.windowMain(dt)
@@ -323,6 +340,7 @@ function script.windowMain(dt)
     showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, graphSelection)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
+    uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + break help)"}, uiData.keyboardMode + 1) - 1
     showCheckbox("useFilter", "Simplified settings", false)
 
     if uiData.useFilter then
@@ -344,7 +362,7 @@ function script.windowMain(dt)
     showConfigSlider("maxSelfSteerAngle", "Max angle", "%.1f°", 0.0,  90.0,   1.0, uiData.useFilter)
     showConfigSlider("dampingStrength",   "Damping",   "%.f%%", 0.0, 100.0, 100.0, uiData.useFilter)
 
-    showDummyLine(0.25)
+    showDummyLine(0.5)
     ui.alignTextToFramePadding()
     ui.textWrapped("Tip: hold SHIFT to fine-tune sliders, or CTRL-click them to edit the values!")
 
@@ -357,6 +375,7 @@ function script.windowMain(dt)
     if graphSelection > 1 then
         drawSelfSteerCurve()
         if graphSelection == 3 then
+            drawLimitReductionBar()
             drawFrontSlipBar()
             drawRearSlipBar()
         end

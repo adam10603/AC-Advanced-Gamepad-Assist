@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/x7Mh8Xc.png)
+![UI app](https://i.imgur.com/f78dwtc.png)
 
 # General
 
@@ -32,11 +32,31 @@ Enables or disables the entire assist. When disabled, Assetto Corsa's own input 
 
 ___
 
+### Keyboard
+
+Allows for gas, brake, and steering input from the keyboard using the keybinds that are set in AC's control settings. You can still use a controller at the same time if this is enabled.
+
+For all the vehicle controls to work (like shifting or handbrake) you also have to enable ***Combine with keyboard*** in AC's control settings!
+
+There are four options for this setting:
+ - **Off** - Disables keyboard driving.
+ - **On** - Allows keyboard driving, but with no throttle or brake assistance.
+ - **On (brake help)** - Allows keyboard driving, and provides brake assistance (similar to ABS).
+ - **On (gas + brake help)** - Allows keyboard driving, and provides throttle and brake assistance (similar to TCS and ABS).
+
+Brake assistance only works if ABS is off, and throttle assistance only works if TCS is off.
+
+These additional assists are similar to what AC would also do to keyboard input. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
+
+Steering input on keyboard will have a bit more smoothing compared to controller steering.
+
+___
+
 ### Simplified settings
 
 This will display a single slider that controls most settings automatically for you. The settings that this affects will appear in blue, and you won't be able to change them manually unless you disable simplified mode.
 
-You can use this in case you find the rest of the settings overwhelming, as this gives you a simple way to control how much assistance you want in general. Of course adjusting settings individually gives you a lot more flexibility, but the simplified mode will get you by if you don't feel like doing that.
+You can use this in case you find the rest of the settings overwhelming, as this gives you a simple way to control how much steering assistance you want in general. Of course adjusting settings individually gives you a lot more flexibility, but the simplified mode will get you by if you don't feel like doing that.
 
 ___
 
@@ -74,7 +94,7 @@ In the GIF above, the car starts to oversteer on corner entry, and you can see t
 
 Setting this too low makes it easier to steer more than required, especially during a harsh corner entry. A higher value will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel a bit too inconsistent and restrictive, as the assist will be allowed to override your input more.
 
-For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn (which you can see with [Graphs](#graphs) set to ***Live***). Around `5°` is enough for that in the majority of cars. But if you like the feeling of getting some front wheel slippage when you throw the car into a turn, then you can set it lower. Note that with `0°` you'll pretty much always steer more than required.
+For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn (which you can see with [Graphs](#graphs) set to ***Live***). Around `5°` is enough for that in the majority of cars. But if you like the feeling of getting some front wheel slippage when you throw the car into a turn, then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
 
 ___
 
