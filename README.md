@@ -14,13 +14,13 @@ The main features of this mod include:
 
  - Accurate steering limit, based on the optimal slip angle of the font tires
  - Self-steer tendency that mimics the effects of the car's caster angle and helps with stability
- - Allowing both keyboard and controller input while using the assist
+ - Allows for keyboard and controller driving at the same time
  - Highly customizable settings through a UI app
  - Real-time readouts of tire slip and more through the UI app
 
 ## 📖 Why?
 
-There are a number of Gamepad FX scripts for Assetto Corsa out there that target the same issues with controller / keyboard input. However, assists like this are quite the task to get right, and even full-time game developers often don't really nail it in their driving games. But the fact that there are so many other AC mods to solve this issue (and some are very popular) clearly shows that there's demand for this kind of thing.
+There are a number of Gamepad FX scripts for Assetto Corsa out there that target the same issues with controller input. However, assists like this are quite the task to get right, and even full-time game developers often don't really nail it in their driving games. But the fact that there are so many other AC mods to solve this issue (and some are very popular) clearly shows that there's demand for this kind of thing.
 
 My biggest problem with most other assists I found is they simply take the force-feedback value from AC and slap it onto your input in one way or another. This might sound fine at first considering that the goal is overcoming the lack of FFB, but in practice doing it that way has a number of drawbacks, since the game's FFB force was never meant for this purpose. There are other ways of achieving a similar effect that are much better suited for non-FFB input devices.
 
@@ -56,6 +56,8 @@ That's pretty much it, the assist should be working now.
 In AC's own control settings, you can set the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders to your liking, but the other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
 
 ![Control settings](https://i.imgur.com/rP0NoyC.png)
+
+If you want to drive on keyboard, set up the binds for it in AC's control settings, then check the ***Combine with keyboard*** option in the gamepad control settings. You'll also have to enable keyboard input in the in-game UI app.
 
 Beyond this, any further configuration is done through the UI app in-game.
 
