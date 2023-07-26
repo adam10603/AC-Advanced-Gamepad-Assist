@@ -409,9 +409,15 @@ local function updateDisplayValues(vData, assistFadeIn, assistEnabled, dt)
     if assistFadeIn < 1e-15 and assistEnabled then
         uiData._localHVelAngle = 0
         uiData._selfSteerStrength = 0
+        uiData._limitReduction = 0
         uiData._frontNdSlip = 0
         uiData._rearNdSlip = 0
     else
+        if not assistEnabled then
+            uiData._localHVelAngle = 0
+            uiData._selfSteerStrength = 0
+            uiData._limitReduction = 0
+        end
         uiData._frontNdSlip = frontSlipDisplaySmoother:get(vData.frontNdSlip, dt)
         uiData._rearNdSlip = rearSlipDisplaySmoother:get(vData.rearNdSlip, dt)
     end

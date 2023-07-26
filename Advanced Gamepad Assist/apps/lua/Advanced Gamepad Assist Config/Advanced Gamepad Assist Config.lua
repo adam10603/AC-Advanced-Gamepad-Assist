@@ -230,14 +230,16 @@ local function showGraph(title, upperLeft, size, xTitle, yTitle, xMin, xMax, yMi
         local graphWidth  = size.x - graphPadding * 2.0
         local graphHeight = size.y - graphPadding * 2.0
 
-        for cx = graphPadding, size.x - graphPadding, screenSampleSize do
-            local relativeX = math.clamp(cx - graphPadding, 0.0, graphWidth) / graphWidth
-            ui.pathLineTo(tmpVec1:set(
-                graphPadding + relativeX * graphWidth,
-                ((1.0 - (graphCallback(xMin + relativeX * xRange) - yMin) / yRange)) * graphHeight + graphPadding
-            ))
+        if graphCallback then
+            for cx = graphPadding, size.x - graphPadding, screenSampleSize do
+                local relativeX = math.clamp(cx - graphPadding, 0.0, graphWidth) / graphWidth
+                ui.pathLineTo(tmpVec1:set(
+                    graphPadding + relativeX * graphWidth,
+                    ((1.0 - (graphCallback(xMin + relativeX * xRange) - yMin) / yRange)) * graphHeight + graphPadding
+                ))
+            end
+            ui.pathStroke(graphPathColor, false, 2)
         end
-        ui.pathStroke(graphPathColor, false, 2)
 
         for x = xMin, xMax, xDiv do
             ui.drawLine(tmpVec1:set(math.round(graphPadding + xPPU * (x - xMin)) or 0, graphPadding), tmpVec2:set(tmpVec1.x, size.y - graphPadding), graphDivColor)
@@ -259,7 +261,7 @@ local function showGraph(title, upperLeft, size, xTitle, yTitle, xMin, xMax, yMi
             ui.setCursor(zeroVec)
         end
 
-        if liveXValue then
+        if liveXValue and graphCallback then
             local liveLineXPos = math.round(graphPadding + (liveXValue - xMin) / xRange * graphWidth) or 0
             local liveLineYPos = math.round(graphPadding + (1.0 - (graphCallback(liveXValue) - yMin) / yRange) * graphHeight) or 0
             local xPosTooHigh = not (liveLineXPos < size.x - graphPadding)
@@ -300,11 +302,11 @@ end
 
 local function drawSelfSteerCurve()
     local liveAngle = (graphSelection == 3) and math.abs(uiData._localHVelAngle) or nil
-    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, selfSteerCurveCallback, liveAngle, 3)
+    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, uiData.assistEnabled and selfSteerCurveCallback or nil, uiData.assistEnabled and liveAngle or nil, 3)
 end
 
 local function drawLimitReductionBar()
-    showBar("Dynamic limit reduction (deg)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 299), vec2(300, 75), -10.0, 0.0, 1.0, barLiveColor, barLiveColor, -uiData.maxDynamicLimitReduction, -uiData._limitReduction)
+    showBar("Dynamic limit reduction (deg)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 299), vec2(300, 75), -10.0, 0.0, 1.0, barLiveColor, barLiveColor, -uiData.maxDynamicLimitReduction, uiData.assistEnabled and (-uiData._limitReduction) or nil)
 end
 
 local function drawFrontSlipBar()
@@ -344,7 +346,7 @@ function script.windowMain(dt)
     showCheckbox("useFilter", "Simplified settings", false)
 
     if uiData.useFilter then
-        showConfigSlider("filterSetting", "Input assistance", "%.f%%", 0.0, 100.0, 100.0)
+        showConfigSlider("filterSetting", "Steering assistance", "%.f%%", 0.0, 100.0, 100.0)
     else
         showDummyLine()
     end
