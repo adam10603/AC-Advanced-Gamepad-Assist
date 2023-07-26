@@ -234,7 +234,7 @@ end
 -- local _tmpVal = 0
 -- local _tSinceUpdate = 0
 -- local _lastUpdateRate = 0
--- function lib.measureUpdateRate(value, dt)
+-- function M.measureUpdateRate(value, dt)
 --     _tSinceUpdate = _tSinceUpdate + dt
 --     if math.abs(value - _tmpVal) > 1e-15 then
 --         _lastUpdateRate = 1.0 / _tSinceUpdate
