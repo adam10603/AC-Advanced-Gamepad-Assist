@@ -12,7 +12,7 @@ local uiData = ac.connect{
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
-    keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and break assist
+    keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
