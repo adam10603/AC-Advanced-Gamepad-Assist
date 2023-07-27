@@ -498,8 +498,8 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
             end
         end
 
-        vData.inputData.brake = sanitize01Input((vData.inputData.brake + kbBrake) * finalBrakeTarget)
-        vData.inputData.gas   = sanitize01Input((vData.inputData.gas + kbThrottle) * finalThrottleTarget)
+        vData.inputData.brake = sanitize01Input(vData.inputData.brake + kbBrake * finalBrakeTarget)
+        vData.inputData.gas   = sanitize01Input(vData.inputData.gas + kbThrottle * finalThrottleTarget)
 
     end
 
