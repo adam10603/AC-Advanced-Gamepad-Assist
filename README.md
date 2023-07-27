@@ -1,12 +1,12 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.0-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
+![Version](https://img.shields.io/badge/Version-1.1-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
 ## 🖊️ Intro
 
-This is a mod for Assetto Corsa that provides a steering assist system for players on a controller. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on a controller regardless of skill level.
+This is a mod for Assetto Corsa that provides a steering assist system for players on controller or keyboard. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on controller or keyboard regardless of skill level.
 
 It works in single player as well as on any online server.
 
@@ -14,16 +14,17 @@ The main features of this mod include:
 
  - Accurate steering limit, based on the optimal slip angle of the font tires
  - Self-steer tendency that mimics the effects of the car's caster angle and helps with stability
+ - Allows for keyboard and controller driving at the same time
  - Highly customizable settings through a UI app
  - Real-time readouts of tire slip and more through the UI app
 
 ## 📖 Why?
 
-There are a number of Gamepad FX scripts for Assetto Corsa out there that target the same issues with controller driving. However, assists like this are quite the task to get right, and even full-time game developers often don't really nail it in their driving games. But the fact that there are so many other AC mods to solve this issue (and some are very popular) clearly shows that there's demand for this kind of thing.
+There are a number of Gamepad FX scripts for Assetto Corsa out there that target the same issues with controller input. However, assists like this are quite the task to get right, and even full-time game developers often don't really nail it in their driving games. But the fact that there are so many other AC mods to solve this issue (and some are very popular) clearly shows that there's demand for this kind of thing.
 
-My biggest problem with most other assists I found is they simply take the force-feedback value from AC and slap it onto your input in one way or another. This might sound fine at first considering that the goal is overcoming the lack of FFB, but in practice doing it that way has a number of drawbacks, since the game's FFB force was never meant for this purpose. There are better ways of achieving a similar effect that are more suited for controller driving.
+My biggest problem with most other assists I found is they simply take the force-feedback value from AC and slap it onto your input in one way or another. This might sound fine at first considering that the goal is overcoming the lack of FFB, but in practice doing it that way has a number of drawbacks, since the game's FFB force was never meant for this purpose. There are other ways of achieving a similar effect that are much better suited for non-FFB input devices.
 
-As to why assists like this are needed in general, that boils down to overcoming the limitations of a controller due to the lack of FFB and the small analog movement range. I've made a similar mod for BeamNG.drive before, and on the Github repo of that mod I have a longer page with the reasoning behind controller assists like this. [You can read that page here](https://github.com/adam10603/BeamNG-Advanced-Steering/blob/release/Explanation.md) if you're interested.
+As to why assists like this are needed in general, that boils down to overcoming the limitations that come from the lack of FFB and the small or no analog movement range. I've made a similar mod for BeamNG.drive before, and on the Github repo of that mod I have a longer page with the reasoning behind assists like this. [You can read that page here](https://github.com/adam10603/BeamNG-Advanced-Steering/blob/release/Explanation.md) if you're interested.
 
 ## 🖥️ Installation
 
@@ -55,6 +56,8 @@ That's pretty much it, the assist should be working now.
 In AC's own control settings, you can set the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders to your liking, but the other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
 
 ![Control settings](https://i.imgur.com/rP0NoyC.png)
+
+If you want to drive on keyboard, set up the binds for it in AC's control settings, then check the ***Combine with keyboard*** option in the gamepad control settings. You'll also have to enable keyboard input in the in-game UI app.
 
 Beyond this, any further configuration is done through the UI app in-game.
 
