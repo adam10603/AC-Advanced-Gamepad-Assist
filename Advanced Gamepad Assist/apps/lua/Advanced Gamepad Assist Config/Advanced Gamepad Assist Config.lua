@@ -9,7 +9,7 @@ local uiData = ac.connect{
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
-    keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and break assist
+    keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
@@ -342,7 +342,7 @@ function script.windowMain(dt)
     showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, graphSelection)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
-    uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + break help)"}, uiData.keyboardMode + 1) - 1
+    uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
     showCheckbox("useFilter", "Simplified settings", false)
 
     if uiData.useFilter then
