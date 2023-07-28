@@ -1,6 +1,6 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.1-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
+![Version](https://img.shields.io/badge/Version-1.1.1-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
@@ -57,7 +57,7 @@ In AC's own control settings, you can set the ***Steering gamma***, ***Steering 
 
 ![Control settings](https://i.imgur.com/rP0NoyC.png)
 
-If you want to drive on keyboard, set up the binds for it in AC's control settings, then check the ***Combine with keyboard*** option in the gamepad control settings. You'll also have to enable keyboard input in the in-game UI app.
+If you want to drive on keyboard, set up the binds for it in AC's control settings, then set the ***Input method*** to ***Gamepad*** and check the ***Combine with keyboard*** option. You'll also have to enable keyboard input in the in-game UI app.
 
 Beyond this, any further configuration is done through the UI app in-game.
 

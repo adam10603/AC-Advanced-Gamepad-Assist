@@ -231,17 +231,21 @@ function M.isVec3Same(A, B, tolerance)
     return (math.abs(A.x - B.x) < tolerance) and (math.abs(A.y - B.y) < tolerance) and (math.abs(A.z - B.z) < tolerance)
 end
 
--- local _tmpVal = 0
--- local _tSinceUpdate = 0
--- local _lastUpdateRate = 0
--- function M.measureUpdateRate(value, dt)
---     _tSinceUpdate = _tSinceUpdate + dt
---     if math.abs(value - _tmpVal) > 1e-15 then
---         _lastUpdateRate = 1.0 / _tSinceUpdate
---         _tSinceUpdate = 0
---         _tmpVal = value
---     end
---     return _lastUpdateRate
--- end
+local _valueHistory = {}
+function M.measureUpdateRate(key, value, dt)
+    if not _valueHistory[key] then
+        _valueHistory[key]              = {}
+        _valueHistory[key].lastVal      = 0
+        _valueHistory[key].tSinceUpdate = 0
+        _valueHistory[key].lastRate     = 0
+    end
+    _valueHistory[key].tSinceUpdate = _valueHistory[key].tSinceUpdate + dt
+    if math.abs(value - _valueHistory[key].lastVal) > 1e-15 then
+        _valueHistory[key].lastRate     = 1.0 / _valueHistory[key].tSinceUpdate
+        _valueHistory[key].tSinceUpdate = 0
+        _valueHistory[key].lastVal      = value
+    end
+    return _valueHistory[key].lastRate
+end
 
 return M
