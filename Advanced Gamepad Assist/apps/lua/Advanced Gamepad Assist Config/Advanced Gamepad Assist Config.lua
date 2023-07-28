@@ -340,8 +340,8 @@ function script.windowMain(dt)
     showHeader("General:")
 
     showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
-    graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, graphSelection)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
+    graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, graphSelection)
     uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
     showCheckbox("useFilter", "Simplified settings", false)
 
@@ -383,7 +383,6 @@ function script.windowMain(dt)
         end
     end
 
-    -- ui.popStyleVar(1)
-    ui.popStyleColor(9)
+    ui.popStyleColor(10)
     ui.popFont()
 end

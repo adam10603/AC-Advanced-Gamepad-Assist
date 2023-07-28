@@ -10,9 +10,7 @@ The default settings should be ok for most people, but there are many ways to fi
 
 When you first spawn a car, an automatic steering calibration will always take place. It lasts about a second and it ensures the assist will work as intended.
 
-This button is for once again performing the same calibration. It shouldn't be necessary (since the automatic calibration happens anyway), but I left the option here just in case the automatic calibration somehow fails.
-
-Although this shouldn't happen, but in case you notice the steering angle being noticeably higher or lower than it should be, you might want to stop and re-calibrate the steering.
+This button is for once again performing the same calibration. This shouldn't be necessary, but the option is here just in case the automatic calibration somehow fails.
 
 ___
 
@@ -36,7 +34,7 @@ ___
 
 Allows for gas, brake, and steering input from the keyboard using the keybinds that are set in AC's control settings. You can still use a controller at the same time if this is enabled.
 
-For all the vehicle controls to work (like shifting or handbrake) you also have to enable ***Combine with keyboard*** in AC's control settings!
+For all the vehicle controls to work (like shifting or handbrake) you also have to enable ***Combine with keyboard*** in AC's control settings, with the ***Input method*** set to ***Gamepad***!
 
 There are four options for this setting:
  - **Off** - Disables keyboard driving.
@@ -46,9 +44,9 @@ There are four options for this setting:
 
 Brake assistance only works if ABS is off, and throttle assistance only works if TCS is off.
 
-These additional assists are similar to what AC would also do to keyboard input. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
+These additional assists are similar to what AC would also do to keyboard input by default. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
 
-Steering input on keyboard will have a bit more smoothing compared to controller steering.
+Also, seering input on keyboard will have a bit more smoothing compared to controller steering.
 
 ___
 
@@ -56,7 +54,7 @@ ___
 
 This will display a single slider that controls most settings automatically for you. The settings that this affects will appear in blue, and you won't be able to change them manually unless you disable simplified mode.
 
-You can use this in case you find the rest of the settings overwhelming, as this gives you a simple way to control how much steering assistance you want in general. Of course adjusting settings individually gives you a lot more flexibility, but the simplified mode will get you by if you don't feel like doing that.
+You can use this in case you find the rest of the settings overwhelming, as this gives you a simple way to control how much steering assistance you want in general. Of course adjusting settings individually gives you a lot more flexibility, but the simplified mode can get you by as well.
 
 ___
 
