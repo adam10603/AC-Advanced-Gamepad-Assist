@@ -207,7 +207,7 @@ local function performCalibration(inputData, vehicle, inverseBodyTransform, dt)
     if calibrationStage < 2 then
 
         if math.isNaN(calibrationRateMult) then
-            calibrationRateMult = math.clamp(ac.getSim().fps / 60.0, 0.8, 1.25)
+            calibrationRateMult = math.clamp((ac.getSim().fps - 6.0) / 60.0, 0.6, 1.3)
         end
 
         inputData.gas       = 0.0
@@ -524,6 +524,7 @@ function script.update(dt)
 
     if uiData.assistEnabled and calibrationSuccess and calibrationTries > 0 then
         ac.setMessage("Advanced Gamepad Assist", "Calibration successful!")
+        calibrationTries = 0
     end
 
     updateConfig(vData.inputData) -- Updates the config values based on the in-game settings
