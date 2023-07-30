@@ -87,7 +87,7 @@ end
 local calibrationDelay         = 0
 local calibrationLockDelay     = 0
 local calibrationStage         = 0
-local calibrationSmoother      = lib.SmoothTowards:new(1.2, 1.0, -1.0, 1.0, 0.0) -- Smooths the initial steering input
+local calibrationSmoother      = lib.SmoothTowards:new(1.2, 1.0, -1.0, 1.0, 0.0)
 local calibrationSavedWheels   = false
 local calibrationSuccess       = false
 local calibrationTries         = 0
@@ -106,10 +106,10 @@ local function updateConfig(inputData)
     if uiData.useFilter then
         uiData.rateIncreaseWithSpeed    = (1.0 - uiData.filterSetting) * 0.2
         uiData.selfSteerResponse        = uiData.filterSetting * 0.5 + 0.12
-        uiData.dampingStrength          = uiData.selfSteerResponse * 0.8
+        uiData.dampingStrength          = uiData.selfSteerResponse -- * 0.8
         uiData.maxSelfSteerAngle        = 24.0 * uiData.filterSetting
         uiData.maxDynamicLimitReduction = 3.0 * uiData.filterSetting + 4.0
-        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.4
+        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.3
     end
 
     savedCfg.assistEnabled            = uiData.assistEnabled
@@ -125,15 +125,6 @@ local function updateConfig(inputData)
     savedCfg.maxDynamicLimitReduction = uiData.maxDynamicLimitReduction
 
     uiData._appCanRun = true
-
-    -- ac.debug("cfg.filterSetting", string.format("%.3f", cfg.filterSetting))
-    -- ac.debug("cfg.steeringRate", string.format("%.3f", cfg.steeringRate))
-    -- ac.debug("cfg.rateIncreaseWithSpeed", string.format("%.3f", cfg.rateIncreaseWithSpeed))
-    -- ac.debug("cfg.countersteerResponse", string.format("%.3f", cfg.countersteerResponse))
-    -- ac.debug("cfg.maxDynamicLimitReduction", string.format("%.3f", cfg.maxDynamicLimitReduction))
-    -- ac.debug("cfg.selfSteerResponse", string.format("%.3f", cfg.selfSteerResponse))
-    -- ac.debug("cfg.maxSelfSteerAngle", string.format("%.3f", cfg.maxSelfSteerAngle))
-    -- ac.debug("cfg.dampingStrength", string.format("%.3f", cfg.dampingStrength))
 end
 
 local function sanitizeSteeringInput(value)
@@ -375,12 +366,16 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     -- Steering limit
 
     local isCountersteering   = (inputSign ~= math.sign(lib.zeroGuard(vData.rAxleLocalVel.x)) and math.abs(initialSteering) > 1e-6) -- Boolean to indicate if the player is countersteering
-    local counterSmooth       = counterIndicatorSmoother:getWithRateMult(isCountersteering and lib.inverseLerpClampedEased(4.5, 8.5, math.abs(rAxleVelHAngle), 0.0, 1.0, 1.0) or 0.0, dt, steeringRateMult) -- Smooth version of the above, and also leaves a few degrees of rear slip "deadzone" so that a simple direction change won't be detected as countersteering
+    local counterRaw          = isCountersteering and lib.inverseLerpClampedEased(4.5, 8.5, math.abs(rAxleVelHAngle), 0.0, 1.0, 1.0) or 0.0
+    local counterSmoothRate   = (counterRaw < counterIndicatorSmoother.state) and 0.25 or 1.25 -- Rate of smoothing for the countersteer indicator
+    local counterSmooth       = counterIndicatorSmoother:getWithRateMult(counterRaw, dt, counterSmoothRate) -- Smooth varible to show countersteering, and also leaves a few degrees of rear slip "deadzone" so that a simple direction change won't be detected as countersteering
     local slipCorrection      = 1.03 -- // FIXME some cars change with speed, find out why
-    local finalTargetSlip     = math.lerp(targetFrontSlipDeg, (targetFrontSlipDeg * 0.7) * uiData.countersteerResponse, counterSmooth) * slipCorrection -- The slip angle that the front wheels will target at 100% input
+    local counterSlipTarget   = (targetFrontSlipDeg * 0.7) * (math.min(math.abs(lib.signClampValue(rAxleVelHAngle, -initialSteering)) / 60.0 * 0.5, 0.5) + (uiData.countersteerResponse * 0.5)) -- Slip angle target if countersteering
+    local finalTargetSlip     = math.lerp(targetFrontSlipDeg, counterSlipTarget, counterSmooth) * slipCorrection -- The slip angle that the front wheels will target at 100% input
+
     local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit             -- math.sign(-initialSteering) * selfSteerForce (when added to the limit)
     local targetSteeringAngle = math.clamp(finalTargetSlip - clampedFWheelVelAngle, -vData.steeringLockDeg, vData.steeringLockDeg) -- The steering angle that would result in the targeted slip angle
-    local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 0.75), -math.pi * 0.5, math.pi * 0.5)) ^ 4 -- Used to get rid of the steering limit when going backward or sideways // TODO *0.75 necessary?
+    local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 0.5), -math.pi * 0.5, math.pi * 0.5)) ^ 6 -- Used to get rid of the steering limit when going backwards
     local limit               = math.lerp(limitSmoother:get(targetSteeringAngle / vData.steeringLockDeg, dt), 1, notForward) -- The final steering limit
 
     return math.clamp((initialSteering * limit) + selfSteerForce + antiSelfSteer, -1.0, 1.0)
@@ -478,7 +473,7 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
             if vData.vehicle.absMode == 0 then
                 -- Applying brake assistance to keyboard input
                 local brakeNdUsed     = vData.totalNdSlip + 0.1 -- Targets 0.9 slip
-                local extBrakeNd      = math.clamp(brakeNdUsed + dt * 20000.0 * (brakeNdUsed - prevBrakeNd), 0, 2.0)
+                local extBrakeNd      = math.clamp(brakeNdUsed + dt * 5000.0 * (brakeNdUsed - prevBrakeNd), 0, 2.0)
                 brakeTarget           = sanitize01Input(math.max(0.3, brakeTarget + dt * 10.0 * (extBrakeNd < 1 and (-1.0 * extBrakeNd + 1.0) or (-3.0 * extBrakeNd + 3.0))))
                 finalBrakeTarget      = brakeTarget
                 prevBrakeNd           = brakeNdUsed
@@ -509,9 +504,7 @@ end
 
 
 function script.update(dt)
-    if car.isAIControlled or not car.physicsAvailable then
-        return
-    end
+    if car.isAIControlled or not car.physicsAvailable then return end
 
     local vData = getVehicleData(dt, not uiData.assistEnabled) -- Vehicle data such as velocities, slip angles etc.
 
@@ -549,16 +542,17 @@ function script.update(dt)
 
     -- Logging data
 
-    ac.debug("1) Relative front slip",     string.format("%.2f",   vData.frontNdSlip))
-    ac.debug("2) Relative rear slip",      string.format("%.2f",   vData.rearNdSlip))
-    ac.debug("3) Target front slip angle", string.format("%.2f°",  targetFrontSlipSmoother:value()))
-    ac.debug("3) Front slip angle",        string.format("%+.2f°", vData.frontSlipDeg))
-    ac.debug("4) Rear slip angle",         string.format("%+.2f°", vData.rearSlipDeg))
-    ac.debug("4) Steering lock",           string.format("%.2f°",  vData.steeringLockDeg))
-    ac.debug("5) Steering angle",          string.format("%+.2f°", getCurrentSteeringAngleDeg(vData.vehicle, vData.inverseBodyTransform)))
-    ac.debug("6) Intended steering angle", string.format("%+.2f°", desiredSteering * vData.steeringLockDeg))
-    ac.debug("7) Steering curve exponent", string.format("%.3f",   vData.steeringCurveExponent))
-    ac.debug("8) Extended physics",        vData.vehicle.extendedPhysics and "Enabled" or "Disabled")
+    ac.debug("A) Relative front slip",       string.format("%.2f",   vData.frontNdSlip))
+    ac.debug("B) Relative rear slip",        string.format("%.2f",   vData.rearNdSlip))
+    ac.debug("C) Target front slip angle",   string.format("%.2f°",  targetFrontSlipSmoother:value()))
+    ac.debug("D) Front slip angle",          string.format("%+.2f°", vData.frontSlipDeg))
+    ac.debug("E) Rear slip angle",           string.format("%+.2f°", vData.rearSlipDeg))
+    ac.debug("F) Steering lock (measured)",  string.format("%.2f°",  vData.steeringLockDeg))
+    ac.debug("G) Steering angle",            string.format("%+.2f°", getCurrentSteeringAngleDeg(vData.vehicle, vData.inverseBodyTransform)))
+    ac.debug("H) Intended steering angle",   string.format("%+.2f°", desiredSteering * vData.steeringLockDeg))
+    ac.debug("I) Steering curve (measured)", string.format("%.3f",   vData.steeringCurveExponent))
+    ac.debug("J) Extended physics",          vData.vehicle.extendedPhysics and "Enabled" or "Disabled")
+
 end
 
 ac.onRelease(function()
