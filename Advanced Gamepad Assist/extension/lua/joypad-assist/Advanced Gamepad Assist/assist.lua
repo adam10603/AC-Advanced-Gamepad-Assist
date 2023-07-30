@@ -473,7 +473,7 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
             if vData.vehicle.absMode == 0 then
                 -- Applying brake assistance to keyboard input
                 local brakeNdUsed     = vData.totalNdSlip + 0.1 -- Targets 0.9 slip
-                local extBrakeNd      = math.clamp(brakeNdUsed + dt * 20000.0 * (brakeNdUsed - prevBrakeNd), 0, 2.0)
+                local extBrakeNd      = math.clamp(brakeNdUsed + dt * 5000.0 * (brakeNdUsed - prevBrakeNd), 0, 2.0)
                 brakeTarget           = sanitize01Input(math.max(0.3, brakeTarget + dt * 10.0 * (extBrakeNd < 1 and (-1.0 * extBrakeNd + 1.0) or (-3.0 * extBrakeNd + 3.0))))
                 finalBrakeTarget      = brakeTarget
                 prevBrakeNd           = brakeNdUsed
