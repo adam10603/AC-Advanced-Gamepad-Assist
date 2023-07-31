@@ -90,9 +90,9 @@ Normally the assist will try to keep the front wheels at their ideal slip angle 
 
 In the GIF above, the car starts to oversteer on corner entry, and you can see the difference in how much the steering is allowed compensate for this (despite the player fully turning inwards in both cases).
 
-Setting this too low makes it easier to steer more than required, especially during a harsh corner entry. A higher value will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel a bit too inconsistent and restrictive, as the assist will be allowed to override your input more.
+Setting this lower makes it easier to steer more than required, especially during a harsh corner entry. On the other hand, a higher setting will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel too restrictive, as the assist will be allowed to override your input more.
 
-For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn (which you can see with [Graphs](#graphs) set to ***Live***). Around `5°` is enough for that in the majority of cars. But if you like the feeling of getting some front wheel slippage when you throw the car into a turn, then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
+For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn (which you can see with [Graphs](#graphs) set to ***Live***). Around `5°` is enough for that in most cars. But if you want to be able to throw the car into a turn more aggressively (and don't mind some tire slippage), then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
 
 ___
 
