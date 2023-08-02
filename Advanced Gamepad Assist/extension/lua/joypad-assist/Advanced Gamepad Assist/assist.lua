@@ -1,3 +1,5 @@
+if car.isAIControlled then return end
+
 local lib = require "AGALib"
 
 -- CONFIG =====================================================================================
@@ -12,6 +14,7 @@ local uiData = ac.connect{
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
+    graphSelection           = ac.StructItem.int32(),
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
@@ -28,14 +31,15 @@ local uiData = ac.connect{
 local savedCfg = ac.storage({
     assistEnabled            = true,
     keyboardMode             = 0,
+    graphSelection           = 1,
     useFilter                = true,
-    filterSetting            = 0.4,
+    filterSetting            = 0.6,
     steeringRate             = 0.6,
-    rateIncreaseWithSpeed    = 0.12,
-    selfSteerResponse        = 0.35,
-    dampingStrength          = 0.26,
-    maxSelfSteerAngle        = 9.6,
-    countersteerResponse     = 0.32,
+    rateIncreaseWithSpeed    = 0.08,
+    selfSteerResponse        = 0.42,
+    dampingStrength          = 0.42,
+    maxSelfSteerAngle        = 14.4,
+    countersteerResponse     = 0.16,
     maxDynamicLimitReduction = 5.2
 }, "AGA_")
 
@@ -43,6 +47,7 @@ local savedCfg = ac.storage({
 uiData._appCanRun               = false
 uiData.assistEnabled            = savedCfg.assistEnabled
 uiData.keyboardMode             = savedCfg.keyboardMode
+uiData.graphSelection           = savedCfg.graphSelection
 uiData.useFilter                = savedCfg.useFilter
 uiData.filterSetting            = savedCfg.filterSetting
 uiData.steeringRate             = savedCfg.steeringRate
@@ -64,7 +69,6 @@ local selfSteerSmoother        = lib.SmoothTowards:new(12.0,  0.15, -1.0,  1.0, 
 local limitSmoother            = lib.SmoothTowards:new(15.0,  0.01,  0.0,  1.0, 1.0) -- Smooths out changes in the steering limit
 local targetFrontSlipSmoother  = lib.SmoothTowards:new( 0.05, 0.05,  0.0, 15.0, 7.0) -- Smooths the measured ideal slip angle for the front wheels
 local groundedSmoother         = lib.SmoothTowards:new( 5.0,  1.0,   0.0,  1.0, 1.0) -- Smooths the value that indicates if any of the front wheels are grounded
-local counterIndicatorSmoother = lib.SmoothTowards:new(14.0,  1.0,   0.0,  1.0, 0.0) -- Smooths the value that indicates if the player is countersteering
 local frontSlipDisplaySmoother = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0, 0.0) -- Smooths the relative front slip value sent to the UI app for visualization
 local rearSlipDisplaySmoother  = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0, 0.0) -- Smooths the relative rear slip value sent to the UI app for visualization
 local vehicleSteeringLock      = math.NaN -- Degrees
@@ -97,6 +101,7 @@ local calibrationRateMult      = math.NaN
 local localWheelPositions      = {[0] = vec3(0.7, -0.2, 1.3), vec3(-0.7, -0.2, 1.3), vec3(0.7, -0.2, -1.3), vec3(-0.7, -0.2, -1.3)} -- Local positions of all 4 wheels (0-based index). Only set once, not updated dynamically.
 local fAxlePos                 = vec3(0.0, -0.2,  1.3)
 local rAxlePos                 = vec3(0.0, -0.2, -1.3)
+local avgWheelPos              = vec3(0.0, -0.2, 0.0)
 local steeringCurveSamples     = {}
 local steeringExponent         = 0.95
 local fastLearningTime         = 0
@@ -108,12 +113,13 @@ local function updateConfig(inputData)
         uiData.selfSteerResponse        = uiData.filterSetting * 0.5 + 0.12
         uiData.dampingStrength          = uiData.selfSteerResponse -- * 0.8
         uiData.maxSelfSteerAngle        = 24.0 * uiData.filterSetting
-        uiData.maxDynamicLimitReduction = 3.0 * uiData.filterSetting + 4.0
-        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.3
+        uiData.maxDynamicLimitReduction = 2 * uiData.filterSetting + 4.0
+        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.4
     end
 
     savedCfg.assistEnabled            = uiData.assistEnabled
     savedCfg.keyboardMode             = uiData.keyboardMode
+    savedCfg.graphSelection           = uiData.graphSelection
     savedCfg.useFilter                = uiData.useFilter
     savedCfg.filterSetting            = uiData.filterSetting
     savedCfg.steeringRate             = uiData.steeringRate
@@ -222,6 +228,10 @@ local function performCalibration(inputData, vehicle, inverseBodyTransform, dt)
             inverseBodyTransform:transformPoint(vehicle.wheels[3].position):copyTo(localWheelPositions[3])
             fAxlePos:set(localWheelPositions[0]):add(localWheelPositions[1]):scale(0.5)
             rAxlePos:set(localWheelPositions[2]):add(localWheelPositions[3]):scale(0.5)
+            avgWheelPos:set(localWheelPositions[0]):add(localWheelPositions[1]):add(localWheelPositions[2]):add(localWheelPositions[3]):scale(0.25)
+            avgWheelPos.x = math.round(avgWheelPos.x * 1000.0) / 1000.0
+            avgWheelPos.y = math.round(avgWheelPos.y * 1000.0) / 1000.0
+            avgWheelPos.z = math.round(avgWheelPos.z * 1000.0) / 1000.0
             if math.abs(rAxlePos.x) > 0.01 or math.abs(fAxlePos.x) > 0.01 then
                 ac.setMessage("Advanced Gamepad Assist", "Warning - The average wheel position seems off-center.")
             end
@@ -287,6 +297,7 @@ end
 local storedLocalWheelVel = {[0] = vec3(), vec3(), vec3(), vec3()} -- Stores local wheel velocities to avoid creating new vectors on every update
 local storedWeightedFLocalVel = vec3()
 local storedRAxleLocalVel = vec3()
+local storedMiddleVel = vec3()
 
 -- Returns all relevant measurements and data related to the vehicle, or `nil` if the steering clibration has not finished yet
 local function getVehicleData(dt, skipCalibration)
@@ -298,11 +309,13 @@ local function getVehicleData(dt, skipCalibration)
         if not performCalibration(inputData, vehicle, inverseBodyTransform, dt) then return nil end
     end
 
-    local fWheelWeights = {lib.zeroGuard(vehicle.wheels[0].load), lib.zeroGuard(vehicle.wheels[1].load)}
-    local rWheelWeights = {lib.zeroGuard(vehicle.wheels[2].load), lib.zeroGuard(vehicle.wheels[3].load)}
+    local fWheelWeights   = {lib.zeroGuard(vehicle.wheels[0].load), lib.zeroGuard(vehicle.wheels[1].load)}
+    local rWheelWeights   = {lib.zeroGuard(vehicle.wheels[2].load), lib.zeroGuard(vehicle.wheels[3].load)}
+    local allWheelWeights = {fWheelWeights[1], fWheelWeights[2], rWheelWeights[1], rWheelWeights[2]}
 
     lib.weightedVecAverage({storedLocalWheelVel[0], storedLocalWheelVel[1]}, fWheelWeights, storedWeightedFLocalVel)
     lib.getPointVelocity(rAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedRAxleLocalVel)
+    lib.getPointVelocity(avgWheelPos, vehicle.localAngularVelocity, vehicle.localVelocity, storedMiddleVel)
 
     -- Updating wheel loads and local wheel velocities
     for i = 0, 3 do
@@ -313,18 +326,20 @@ local function getVehicleData(dt, skipCalibration)
         inputData             = inputData, -- ac.getJoypadState()
         vehicle               = vehicle, -- ac.getCar(0)
         inverseBodyTransform  = inverseBodyTransform, -- Used for converting points or vectors from global space to local space
-        localVel              = vehicle.localVelocity, -- Local velocity vector of the vehicle
-        localHVelLen          = math.sqrt(vehicle.localVelocity.x * vehicle.localVelocity.x + vehicle.localVelocity.z * vehicle.localVelocity.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
+        -- localVel              = vehicle.localVelocity, -- Local velocity vector of the vehicle
+        localVel              = storedMiddleVel, -- Local velocity vector of the vehicle at the average position of all 4 wheels
+        -- localHVelLen          = math.sqrt(vehicle.localVelocity.x * vehicle.localVelocity.x + vehicle.localVelocity.z * vehicle.localVelocity.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
+        localHVelLen          = math.sqrt(storedMiddleVel.x * storedMiddleVel.x + storedMiddleVel.z * storedMiddleVel.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
         localAngularVel       = vehicle.localAngularVelocity,
         -- fWheelWeights         = fWheelWeights, -- Front wheel loads, for using a weighted average
         -- rWheelWeights         = rWheelWeights, -- Rear wheel loads, for using a weighted average
-        travelDirection       = math.deg(math.atan2(vehicle.localVelocity.x, vehicle.localVelocity.z)), -- The angle of the vehicle's velocity vector on the local horizontal plane (deg)
+        travelDirection       = math.deg(math.atan2(storedMiddleVel.x, storedMiddleVel.z)), -- The angle of the vehicle's velocity vector on the local horizontal plane (deg)
         frontSlipDeg          = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].slipAngle, vehicle.wheels[1].slipAngle}, fWheelWeights)), -- Average front wheel slip angle, weighted by wheel load (deg)
         rearSlipDeg           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[2].slipAngle, vehicle.wheels[3].slipAngle}, rWheelWeights)), -- Average rear wheel slip angle, weighted by wheel load (deg)
         frontNdSlip           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].ndSlip,    vehicle.wheels[1].ndSlip},    fWheelWeights)), -- Average normalized front slip, weighted by wheel load
         rearNdSlip            = lib.numberGuard(lib.weightedAverage({vehicle.wheels[2].ndSlip,    vehicle.wheels[3].ndSlip},    rWheelWeights)), -- Average normalized rear slip, weighted by wheel load
-        totalNdSlip           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].ndSlip, vehicle.wheels[1].ndSlip, vehicle.wheels[2].ndSlip, vehicle.wheels[3].ndSlip}, {fWheelWeights[1], fWheelWeights[2], rWheelWeights[1], rWheelWeights[2]})),
-        fwdVelClamped         = math.max(0.0, vehicle.localVelocity.z), -- Velocity along the local forwrad axis, positive only (m/s)
+        totalNdSlip           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].ndSlip, vehicle.wheels[1].ndSlip, vehicle.wheels[2].ndSlip, vehicle.wheels[3].ndSlip}, allWheelWeights)),
+        fwdVelClamped         = math.max(0.0, storedMiddleVel.z), -- Velocity along the local forwrad axis, positive only (m/s)
         steeringLockDeg       = lib.numberGuard(vehicleSteeringLock, math.abs(inputData.steerLock / inputData.steerRatio)),
         weightedFLocalVel     = storedWeightedFLocalVel, -- Weighted average local velocity of the front wheels
         rAxleLocalVel         = storedRAxleLocalVel, -- Local velocity of the rear axle (same as the average of the rear wheels)
@@ -366,12 +381,10 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     -- Steering limit
 
     local isCountersteering   = (inputSign ~= math.sign(lib.zeroGuard(vData.rAxleLocalVel.x)) and math.abs(initialSteering) > 1e-6) -- Boolean to indicate if the player is countersteering
-    local counterRaw          = isCountersteering and lib.inverseLerpClampedEased(4.5, 8.5, math.abs(rAxleVelHAngle), 0.0, 1.0, 1.0) or 0.0
-    local counterSmoothRate   = (counterRaw < counterIndicatorSmoother.state) and 0.25 or 1.25 -- Rate of smoothing for the countersteer indicator
-    local counterSmooth       = counterIndicatorSmoother:getWithRateMult(counterRaw, dt, counterSmoothRate) -- Smooth varible to show countersteering, and also leaves a few degrees of rear slip "deadzone" so that a simple direction change won't be detected as countersteering
+    local counterIndicator    = isCountersteering and lib.inverseLerpClampedEased(4.5, 8.5, math.abs(rAxleVelHAngle), 0.0, 1.0, 0.6) or 0.0
     local slipCorrection      = 1.03 -- // FIXME some cars change with speed, find out why
-    local counterSlipTarget   = (targetFrontSlipDeg * 0.7) * (math.min(math.abs(lib.signClampValue(rAxleVelHAngle, -initialSteering)) / 60.0 * 0.5, 0.5) + (uiData.countersteerResponse * 0.5)) -- Slip angle target if countersteering
-    local finalTargetSlip     = math.lerp(targetFrontSlipDeg, counterSlipTarget, counterSmooth) * slipCorrection -- The slip angle that the front wheels will target at 100% input
+    local counterSlipTarget   = (targetFrontSlipDeg * 0.7) * (math.min(math.abs(lib.signClampValue(rAxleVelHAngle, -initialSteering)) / 30.0 * 0.5, 0.5) + (uiData.countersteerResponse * 0.5) - 0.25) -- Slip angle target if countersteering
+    local finalTargetSlip     = math.lerp(targetFrontSlipDeg, counterSlipTarget, counterIndicator) * slipCorrection -- The slip angle that the front wheels will target at 100% input
 
     local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit             -- math.sign(-initialSteering) * selfSteerForce (when added to the limit)
     local targetSteeringAngle = math.clamp(finalTargetSlip - clampedFWheelVelAngle, -vData.steeringLockDeg, vData.steeringLockDeg) -- The steering angle that would result in the targeted slip angle
@@ -500,8 +513,6 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
 
     return initialSteering, absInitialSteering
 end
-
-
 
 function script.update(dt)
     if car.isAIControlled or not car.physicsAvailable then return end
