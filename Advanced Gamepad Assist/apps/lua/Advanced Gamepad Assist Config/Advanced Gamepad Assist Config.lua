@@ -9,6 +9,7 @@ local uiData = ac.connect{
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
+    graphSelection           = ac.StructItem.int32(),
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
@@ -35,7 +36,7 @@ local tooltips = {
     dampingStrength          = "Prevents the self-steer force from overcorrecting.\nHigher 'Response' and 'Max angle' settings require more damping to prevent the self-steer force from making the car wobble.",
     maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\nBasically this limits how big of a slide the self-steer can help to recover from.",
     countersteerResponse     = "High = more effective manual countersteering, but also easier to overcorrect a slide.",
-    maxDynamicLimitReduction = "How much the steering angle can reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more \"raw\" and more prone to steering too much, high = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn."
+    maxDynamicLimitReduction = "How much the steering angle can reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more \"raw\" and more prone to steering too much, high = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn.\nIf you like to throw the car into a turn more aggressively, set it lower."
 }
 
 local sectionPadding = 10
@@ -67,8 +68,6 @@ local barLowColor        = rgbm(140/255, 156/255, 171/255, 1)
 local zeroVec = vec2() -- Do not modify
 local tmpVec1 = vec2()
 local tmpVec2 = vec2()
-
-local graphSelection = 1
 
 local function addTooltipToLastItem(tooltipKey)
     if ui.itemHovered() and tooltipKey and tooltips[tooltipKey] then
@@ -297,11 +296,11 @@ local function selfSteerCurveCallback(x)
     local correctionExponent = 1.0 + (1.0 - math.log10(10.0 * (uiData.selfSteerResponse * 0.9 + 0.1)))
     local correctionBase     = lib.signedPow(math.clamp(x / 72.0, -1, 1), correctionExponent) * 72.0
     local selfSteerCapT      = math.min(1.0, 4.0 / (2 * uiData.maxSelfSteerAngle))
-    return lib.clampEased(correctionBase, -uiData.maxSelfSteerAngle, uiData.maxSelfSteerAngle, selfSteerCapT) * ((graphSelection == 3) and uiData._selfSteerStrength or 1.0)
+    return lib.clampEased(correctionBase, -uiData.maxSelfSteerAngle, uiData.maxSelfSteerAngle, selfSteerCapT) * ((uiData.graphSelection == 3) and uiData._selfSteerStrength or 1.0)
 end
 
 local function drawSelfSteerCurve()
-    local liveAngle = (graphSelection == 3) and math.abs(uiData._localHVelAngle) or nil
+    local liveAngle = (uiData.graphSelection == 3) and math.abs(uiData._localHVelAngle) or nil
     showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, uiData.assistEnabled and selfSteerCurveCallback or nil, uiData.assistEnabled and liveAngle or nil, 3)
 end
 
@@ -341,7 +340,7 @@ function script.windowMain(dt)
 
     showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
-    graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, graphSelection)
+    uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection)
     uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
     showCheckbox("useFilter", "Simplified settings", false)
 
@@ -374,9 +373,9 @@ function script.windowMain(dt)
     -- ui.textAligned("v0.6b", tmpVec1:set(0.5 - (29 / ui.windowWidth()), 0), tmpVec2:set(ui.windowWidth(), 0))
     -- ui.popFont()
 
-    if graphSelection > 1 then
+    if uiData.graphSelection > 1 then
         drawSelfSteerCurve()
-        if graphSelection == 3 then
+        if uiData.graphSelection == 3 then
             drawLimitReductionBar()
             drawFrontSlipBar()
             drawRearSlipBar()

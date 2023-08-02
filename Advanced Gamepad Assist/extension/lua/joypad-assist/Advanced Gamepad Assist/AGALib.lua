@@ -228,6 +228,7 @@ end
 
 -- Determines if two vectors are the same, meaning all 3 of their components are within `tolerance` of each other.
 function M.isVec3Same(A, B, tolerance)
+    tolerance = tolerance or 1e-15
     return (math.abs(A.x - B.x) < tolerance) and (math.abs(A.y - B.y) < tolerance) and (math.abs(A.z - B.z) < tolerance)
 end
 
