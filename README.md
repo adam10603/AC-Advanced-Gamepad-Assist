@@ -1,6 +1,6 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.1.3-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
+![Version](https://img.shields.io/badge/Version-1.1.4-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.1.79-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
