@@ -12,6 +12,7 @@ local uiData = ac.connect{
     graphSelection           = ac.StructItem.int32(),
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     useFilter                = ac.StructItem.boolean(),
+    autoClutch               = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
     rateIncreaseWithSpeed    = ac.StructItem.double(),
@@ -68,6 +69,8 @@ local barLowColor        = rgbm(140/255, 156/255, 171/255, 1)
 local zeroVec = vec2() -- Do not modify
 local tmpVec1 = vec2()
 local tmpVec2 = vec2()
+
+local enableClicked = 0
 
 local function addTooltipToLastItem(tooltipKey)
     if ui.itemHovered() and tooltipKey and tooltips[tooltipKey] then
@@ -316,9 +319,37 @@ local function drawRearSlipBar()
     showBar("Relative rear slip (%)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y + 447), vec2(300, 75), 50.0, 150.0, 10.0, barLowColor, barHighColor, 100.0, uiData._rearNdSlip * 100.0)
 end
 
+local function enableScript()
+    local iniFile     = "\\joypad_assist.ini"
+    local sectionName = "BASIC"
+
+    if ac.getPatchVersionCode() >= 2260 then
+        iniFile     = "\\gamepad_fx.ini"
+        sectionName = "JOYPAD_ASSIST"
+    end
+
+    local gamepadIni = ac.INIConfig.load(ac.getFolder(ac.FolderID.ExtCfgUser) .. iniFile)
+    gamepadIni:set(sectionName, "ENABLED", 1)
+    gamepadIni:set(sectionName, "IMPLEMENTATION", "Advanced Gamepad Assist")
+    gamepadIni:save(ac.getFolder(ac.FolderID.ExtCfgUser) .. iniFile)
+
+    enableClicked = os.clock()
+end
+
 function script.windowMain(dt)
     if not uiData._appCanRun then
-        ui.textWrapped("Advanced Gamepad Assist is currently not active!")
+
+        if not lib.clampEased then
+            ui.textWrapped("Advanced Gamepad Assist is not installed!")
+        else
+            ui.textWrapped("Advanced Gamepad Assist is currently not enabled!")
+            local currentClock = os.clock()
+            if (currentClock - enableClicked) >= 3.0 then
+                showDummyLine()
+                showButton("Enable", nil, enableScript)
+            end
+        end
+
         return
     end
 
@@ -342,6 +373,7 @@ function script.windowMain(dt)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
     uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection)
     uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
+    -- showCheckbox("autoClutch", "Anti-stall clutch", false)
     showCheckbox("useFilter", "Simplified settings", false)
 
     if uiData.useFilter then
