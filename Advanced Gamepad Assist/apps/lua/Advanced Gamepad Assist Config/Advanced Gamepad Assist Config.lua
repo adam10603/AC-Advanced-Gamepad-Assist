@@ -1,4 +1,5 @@
 local lib = require "../../../extension/lua/joypad-assist/Advanced Gamepad Assist/AGALib"
+local _json = require "json"
 
 local uiData = ac.connect{
     ac.StructItem.key("AGAData"),
@@ -23,8 +24,31 @@ local uiData = ac.connect{
     maxDynamicLimitReduction = ac.StructItem.double()
 }
 
+-- Keys that are stored in a preset
+local presetKeys = {
+    "keyboardMode",
+    "graphSelection",
+    "useFilter",
+    "autoClutch",
+    "filterSetting",
+    "steeringRate",
+    "rateIncreaseWithSpeed",
+    "selfSteerResponse",
+    "dampingStrength",
+    "maxSelfSteerAngle",
+    "countersteerResponse",
+    "maxDynamicLimitReduction",
+}
+
+local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.3,"graphSelection":1},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.7,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.4,"graphSelection":1},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"keyboardMode":0,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.5,"graphSelection":1},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.4,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.4,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.4,"graphSelection":1},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.5,"graphSelection":1}}'
+
+local savedPresets = ac.storage({presets = _factoryPresetsStr}, "AGA_PRESETS_")
+
+local presets = _json.decode(savedPresets.presets)
+
 local tooltips = {
     lockedNote               = "Locked. Uncheck 'Simplified settings' to adjust manually!",
+    presets                  = "This is where you can save or load presets!",
     calibration              = "Performs a quick steering calibration, just in case the assist isn't working correctly.\nYou must stop the car before doing this!",
     graphs                   = "Displays useful graphs to visualize what the assist is doing.\nThey can either be static or updated with live values.",
     assistEnabled            = "Enables or disables the assist.\nIf unchecked, AC's built-in input processing is used without alterations.",
@@ -50,6 +74,7 @@ local controlActiveColor = rgbm(59/255, 159/255, 255/255, 0.4)
 local lockIconColor      = controlAccentColor
 local lockedSliderColor  = rgbm(0.0, 0.2, 0.5, 0.5)
 local buttonColor        = rgbm(0.4, 0.4, 0.4, 0.75)
+local childBgColor       = rgbm(0.0, 0.0, 0.0, 0.2)
 
 local graphPadding       = 50
 local graphDivColor      = rgbm(1.0, 1.0, 1.0, 0.1)
@@ -69,8 +94,20 @@ local barLowColor        = rgbm(140/255, 156/255, 171/255, 1)
 local zeroVec = vec2() -- Do not modify
 local tmpVec1 = vec2()
 local tmpVec2 = vec2()
+local tmpVec3 = vec2()
+
+local presetsWindowEnabled = false
 
 local enableClicked = 0
+
+local function getPresetList()
+    local keys = {}
+    for k, _ in pairs(presets) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys)
+    return keys
+end
 
 local function addTooltipToLastItem(tooltipKey)
     if ui.itemHovered() and tooltipKey and tooltips[tooltipKey] then
@@ -137,9 +174,10 @@ end
 
 local function showButton(text, tooltipKey, callback)
     ui.offsetCursorX(sectionPadding)
-    ui.button(text, tmpVec1:set(ui.availableSpaceX() - sectionPadding, ui.frameHeight()))
+    local clicked = ui.button(text, tmpVec1:set(ui.availableSpaceX() - sectionPadding, ui.frameHeight()))
     addTooltipToLastItem(tooltipKey)
-    if ui.itemClicked(ui.MouseButton.Left) then callback() end
+    if clicked then callback() end
+    return clicked
 end
 
 local function showCompactDropdown(label, tooltipKey, values, selectedIndex)
@@ -336,6 +374,97 @@ local function enableScript()
     enableClicked = os.clock()
 end
 
+local function togglePresetsWindow()
+    presetsWindowEnabled = not presetsWindowEnabled
+end
+
+local function savePreset(name)
+    presets[name] = {}
+    for _, pKey in ipairs(presetKeys) do
+        presets[name][pKey] = uiData[pKey]
+    end
+    savedPresets.presets = _json.encode(presets)
+end
+
+local function loadPreset(name)
+    if presets[name] == nil then return false end
+    for pKey, pVal in pairs(presets[name]) do
+        if uiData[pKey] ~= nil then uiData[pKey] = pVal end
+    end
+    return true
+end
+
+local function deletePreset(name)
+    if presets[name] == nil then return end
+    presets[name] = nil
+    savedPresets.presets = _json.encode(presets)
+end
+
+local currentPresetName = ""
+local saveFeedbackStart = -1
+local loadFeedbackStart = -1
+local function drawPresetsWindow()
+    ui.beginToolWindow("presets", tmpVec1:set(ui.windowPos()):add(tmpVec2:set(0, -270)), tmpVec3:set(270, 270), false, true)
+
+    ui.text("Preset name:")
+
+    ui.setNextItemWidth(ui.availableSpaceX())
+    currentPresetName = ui.inputText("", currentPresetName, ui.InputTextFlags.RetainSelection)
+
+    local loadText = "⤴️ Load"
+    local loadFlags = ui.ButtonFlags.None
+    if loadFeedbackStart ~= -1 then
+        if ui.time() - loadFeedbackStart > 1.0 then
+            loadFeedbackStart = -1
+        else
+            ui.setNextTextBold()
+            loadText = "✅ Loaded!"
+            loadFlags = ui.ButtonFlags.Disabled
+        end
+    end
+    local loadClicked = ui.button(loadText, tmpVec1:set(ui.availableSpaceX() / 3.0, ui.frameHeight()), loadFlags)
+
+    ui.sameLine()
+    local saveText = "💾 Save"
+    local saveFlags = ui.ButtonFlags.None
+    if saveFeedbackStart ~= -1 then
+        if ui.time() - saveFeedbackStart > 1.0 then
+            saveFeedbackStart = -1
+        else
+            ui.setNextTextBold()
+            saveText = "✅ Saved!"
+            saveFlags = ui.ButtonFlags.Disabled
+        end
+    end
+    local saveClicked = ui.button(saveText, tmpVec1:set(ui.availableSpaceX() / 2.0, ui.frameHeight()), saveFlags)
+
+    ui.sameLine()
+    local deleteClicked = ui.button("❌ Delete", tmpVec1:set(ui.availableSpaceX(), ui.frameHeight()))
+
+    if saveClicked and currentPresetName:len() > 0   then savePreset(currentPresetName) saveFeedbackStart = ui.time()  end
+    if loadClicked and currentPresetName:len() > 0   then if loadPreset(currentPresetName) then loadFeedbackStart = ui.time() end end
+    if deleteClicked and currentPresetName:len() > 0 then deletePreset(currentPresetName) end
+
+    ui.text("Saved presets:")
+
+    local presetNames = getPresetList()
+
+    ui.childWindow("presetList", tmpVec1:set(ui.availableSpaceX(), ui.windowHeight() - ui.getCursorY() - ui.StyleVar.WindowPadding), false, ui.WindowFlags.NoTitleBar + ui.WindowFlags.NoMove + ui.WindowFlags.NoResize, function ()
+        -- ui.alignTextToFramePadding()
+        showDummyLine(0.0)
+        for _, preset in ipairs(presetNames) do
+            local isSelected = preset == currentPresetName
+            if isSelected then ui.setNextTextBold() end
+            if ui.selectable(preset, isSelected) then
+                currentPresetName = preset
+            end
+        end
+        return 0
+    end)
+
+    ui.endToolWindow()
+end
+
 function script.windowMain(dt)
     if not uiData._appCanRun then
 
@@ -364,6 +493,8 @@ function script.windowMain(dt)
     ui.pushStyleColor(ui.StyleColor.SliderGrabActive, controlAccentColor)
     ui.pushStyleColor(ui.StyleColor.HeaderHovered, controlHoverColor)
     ui.pushStyleColor(ui.StyleColor.HeaderActive, controlActiveColor)
+    ui.pushStyleColor(ui.StyleColor.TextSelectedBg, controlAccentColor)
+    ui.pushStyleColor(ui.StyleColor.ChildBg, childBgColor)
     -- ui.pushStyleColor(ui.StyleColor.Border, black)
     -- ui.pushStyleVar(ui.StyleVar.WindowBorderSize, 1)
 
@@ -371,6 +502,7 @@ function script.windowMain(dt)
 
     showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
+    showButton(presetsWindowEnabled and "Hide presets" or "Show presets", "presets", togglePresetsWindow)
     uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection)
     uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
     -- showCheckbox("autoClutch", "Anti-stall clutch", false)
@@ -395,7 +527,7 @@ function script.windowMain(dt)
     showConfigSlider("maxSelfSteerAngle", "Max angle", "%.1f°", 0.0,  90.0,   1.0, uiData.useFilter)
     showConfigSlider("dampingStrength",   "Damping",   "%.f%%", 0.0, 100.0, 100.0, uiData.useFilter)
 
-    showDummyLine(0.5)
+    showDummyLine(0.25)
     ui.alignTextToFramePadding()
     ui.textWrapped("Tip: hold SHIFT to fine-tune sliders, or CTRL-click them to edit the values!")
 
@@ -414,6 +546,8 @@ function script.windowMain(dt)
         end
     end
 
-    ui.popStyleColor(10)
+    if presetsWindowEnabled then drawPresetsWindow() end
+
+    ui.popStyleColor(12)
     ui.popFont()
 end
