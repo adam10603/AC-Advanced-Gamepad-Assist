@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/mH00b3f.png)
+![UI app](https://i.imgur.com/8Cs4Kaq.png)
 
 # General
 
@@ -27,6 +27,12 @@ ___
 ### Enable Advanced Gamepad Assist
 
 Enables or disables the entire assist. When disabled, Assetto Corsa's own input handling will be used without any changes.
+
+___
+
+### Show Presets
+
+This opens a window where you can save or load presets. Presets store all settings except for [Enable Advanced Gamepad Assist](#enable-advanced-gamepad-assist).
 
 ___
 

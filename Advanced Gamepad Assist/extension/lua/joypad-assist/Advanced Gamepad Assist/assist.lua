@@ -35,14 +35,14 @@ local savedCfg = ac.storage({
     graphSelection           = 1,
     useFilter                = true,
     autoClutch               = false,
-    filterSetting            = 0.6,
-    steeringRate             = 0.6,
-    rateIncreaseWithSpeed    = 0.08,
-    selfSteerResponse        = 0.42,
-    dampingStrength          = 0.42,
-    maxSelfSteerAngle        = 14.4,
-    countersteerResponse     = 0.16,
-    maxDynamicLimitReduction = 5.2
+    filterSetting            = 0.5,
+    steeringRate             = 0.5,
+    rateIncreaseWithSpeed    = 0.1,
+    selfSteerResponse        = 0.37,
+    dampingStrength          = 0.37,
+    maxSelfSteerAngle        = 14.0,
+    countersteerResponse     = 0.2,
+    maxDynamicLimitReduction = 5.0
 }, "AGA_")
 
 -- Initializing shared cfg
@@ -116,7 +116,7 @@ local function updateConfig(inputData)
         uiData.rateIncreaseWithSpeed    = (1.0 - uiData.filterSetting) * 0.2
         uiData.selfSteerResponse        = uiData.filterSetting * 0.5 + 0.12
         uiData.dampingStrength          = uiData.selfSteerResponse -- * 0.8
-        uiData.maxSelfSteerAngle        = 24.0 * uiData.filterSetting
+        uiData.maxSelfSteerAngle        = 28.0 * uiData.filterSetting
         uiData.maxDynamicLimitReduction = 2 * uiData.filterSetting + 4.0
         uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.4
     end
@@ -397,7 +397,7 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     local correctionExponent  = 1.0 + (1.0 - math.log10(10.0 * (uiData.selfSteerResponse * 0.9 + 0.1))) -- This is just to make `cfg.selfSteerResponse` scale in a better way
     local correctionBase      = lib.signedPow(math.clamp(-localVelHAngle / 72.0, -1, 1), correctionExponent) * 72.0 / vData.steeringLockDeg -- Base self-steer force
     local selfSteerCap        = lib.clamp01(uiData.maxSelfSteerAngle / vData.steeringLockDeg) -- Max self-steer amount
-    local selfSteerStrength   = math.sqrt(lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (40.0 / 3.6))) * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
+    local selfSteerStrength   = math.sqrt(lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6))) * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
     local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.2125
     local selfSteerCapT       = math.min(1.0, 4.0 / (2.0 * selfSteerCap))
     local selfSteerForce      = math.clamp(selfSteerSmoother:get(lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce, dt), -2.0, 2.0) * selfSteerStrength
@@ -413,7 +413,7 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
 
     local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit             -- math.sign(-initialSteering) * selfSteerForce (when added to the limit)
     local targetInward        = finalTargetSlip - clampedFAxleVelAngle -- Steering limit when turning inward
-    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * 0.8 + 0.2)) - (inputSign * localVelHAngle) -- Steering limit when countersteering
+    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * 0.8 + 0.2) * (math.lerpInvSat(-inputSign * localVelHAngle, 0.0, 30.0) * 0.3 + 0.7)) - (inputSign * localVelHAngle) -- Steering limit when countersteering
 
     local targetSteeringAngle = math.clamp(math.lerp(targetInward, targetCounter, counterIndicator), -vData.steeringLockDeg, vData.steeringLockDeg) -- The steering angle that would result in the targeted slip angle
     local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 0.75), -math.pi * 0.5, math.pi * 0.5)) ^ 6 -- Used to get rid of the steering limit when going backwards
@@ -485,15 +485,19 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
     if kbMode > 0 then
         -- Applying an extra layer of smoothing to keyboard steering input that works better for key tapping
         local kbRawSteer = (ac.isKeyDown(kbSteerRBind) and 1.0 or 0.0) + (ac.isKeyDown(kbSteerLBind) and -1.0 or 0.0)
-        local kbRateMult = (math.abs(kbSteerSmoother.state) - math.sign(kbSteerSmoother.state) * kbRawSteer) > 0.0 and 2.0 or 1.0
+        local kbRateMult = (math.abs(kbSteerSmoother.state) - math.sign(kbSteerSmoother.state) * kbRawSteer) > 0.0 and 1.5 or 1.0 -- 2.0 or 1.0 ?
         kbSteer          = kbSteerSmoother:getWithRateMult(kbRawSteer, dt, steeringRateMult * kbRateMult)
     else
         kbSteerSmoother.state = 0.0
     end
 
     local rawSteer           = sanitizeSteeringInput(vData.inputData.steerStickX + kbSteer)
-    local initialSteering    = steeringSmoother:getWithRateMult(rawSteer, dt, steeringRateMult) -- Steering input with no processing (except smoothing)
-    local absInitialSteering = absSteeringSmoother:getWithRateMult(math.abs(rawSteer), dt, steeringRateMult) -- Absolute steering input with no processing (except smoothing)
+    local centeringRate      = 1.0 -- Faster centering rate when the steering rate is under 50%
+    if uiData.steeringRate > 0.0 then
+        if (math.abs(rawSteer) < math.abs(steeringSmoother.state) and math.sign(rawSteer) == math.sign(steeringSmoother.state)) or (math.sign(rawSteer) ~= math.sign(steeringSmoother.state)) then centeringRate = (uiData.steeringRate * 0.5 + 0.25) / uiData.steeringRate end
+    end
+    local initialSteering    = steeringSmoother:getWithRateMult(rawSteer, dt, steeringRateMult * centeringRate) -- Steering input with no processing (except smoothing)
+    local absInitialSteering = absSteeringSmoother:getWithRateMult(math.abs(rawSteer), dt, steeringRateMult * centeringRate) -- Absolute steering input with no processing (except smoothing)
 
     local kbThrottle = 0.0
     local kbBrake    = 0.0
