@@ -12,8 +12,13 @@ local uiData = ac.connect{
     assistEnabled            = ac.StructItem.boolean(),
     graphSelection           = ac.StructItem.int32(),
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
-    useFilter                = ac.StructItem.boolean(),
     autoClutch               = ac.StructItem.boolean(),
+    autoShifting             = ac.StructItem.boolean(),
+    autoShiftingCruise       = ac.StructItem.boolean(),
+    autoShiftingDownBias     = ac.StructItem.double(),
+    triggerFeedbackL         = ac.StructItem.double(),
+    triggerFeedbackR         = ac.StructItem.double(),
+    useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
     rateIncreaseWithSpeed    = ac.StructItem.double(),
@@ -26,10 +31,7 @@ local uiData = ac.connect{
 
 -- Keys that are stored in a preset
 local presetKeys = {
-    "keyboardMode",
-    "graphSelection",
     "useFilter",
-    "autoClutch",
     "filterSetting",
     "steeringRate",
     "rateIncreaseWithSpeed",
@@ -40,28 +42,35 @@ local presetKeys = {
     "maxDynamicLimitReduction",
 }
 
-local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.3,"graphSelection":1},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.7,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.4,"graphSelection":1},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"keyboardMode":0,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.5,"graphSelection":1},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.4,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.4,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.4,"graphSelection":1},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"keyboardMode":0,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"autoClutch":false,"steeringRate":0.5,"graphSelection":1}}'
+local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"steeringRate":0.3},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"countersteerResponse":0.5,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.36,"useFilter":false,"countersteerResponse":0.2,"maxDynamicLimitReduction":5.0,"dampingStrength":0.36,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5}}'
 
 local savedPresets = ac.storage({presets = _factoryPresetsStr}, "AGA_PRESETS_")
 
 local presets = _json.decode(savedPresets.presets)
 
 local tooltips = {
+    factoryReset             = "DELETES ALL PRESETS, RESTORES FACTORY PRESETS, AND RESETS EVERY SETTING TO ITS DEFAULT!\nClick twice to confirm!",
     lockedNote               = "Locked. Uncheck 'Simplified settings' to adjust manually!",
     presets                  = "This is where you can save or load presets!",
     calibration              = "Performs a quick steering calibration, just in case the assist isn't working correctly.\nYou must stop the car before doing this!",
-    graphs                   = "Displays useful graphs to visualize what the assist is doing.\nThey can either be static or updated with live values.",
+    graphs                   = "Shows graphs to visualize what the steering assist is doing.\nThey can either be static or updated with live values.",
     assistEnabled            = "Enables or disables the assist.\nIf unchecked, AC's built-in input processing is used without alterations.",
     useFilter                = "Provides a single slider that will adjust most settings automatically for you.",
-    keyboardMode             = "Enables gas, brake and steering input on keyboard.\nYou can also choose to have brake or gas assistance when ABS or TCS are off. These aren't as good as ABS or TCS, they just somewhat compensate for not having analog input.\nFor every vehicle control to work (like shifting or handbrake), you also have to enable the \"Combine with keyboard\" option in AC's control settings!",
+    autoClutch               = "Automatically controls the clutch if the engine would otherwise stall, or when setting off from a standstill.",
+    autoShifting             = "Automatically shifts gears using a more intelligent algorithm than the default one.\nOnly works if 'Automatic shifting' is DISABLED in the game's assist settings!",
+    autoShiftingCruise       = "Allows the automatic shifting to go between cruise mode and performance mode depending on your throttle input.\nUseful if you want to do both performance driving and casual cruising, but you can disable it for racing (especially for rolling starts).",
+    autoShiftingDownBias     = "Higher = more aggressive downshifting.\nFor example at 90% the car will downshift almost right away when you brake for a turn, however, this might leave you very close to the top of a gear when going back on the throttle again.",
+    triggerFeedbackL         = "Vibration feedback on the left trigger when braking with no ABS.\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating with no TCS.\nOnly works with compatible Xbox controllers!",
+    keyboardMode             = "Enables gas, brake and steering input on keyboard.\nYou can also choose to have brake or gas assistance when ABS or TCS are off. These aren't as good as ABS or TCS, they just try to compensate for not having analog input.\nFor every vehicle control to work (like shifting or handbrake), you also have to enable the 'Combine with keyboard' option in the control settings in Content Manager!",
     filterSetting            = "How much steering assistance you want in general.\nNote that 0% does not mean the assist is off, it's just a lower level of assistance.",
     steeringRate             = "How fast the steering is in general.",
-    rateIncreaseWithSpeed    = "How much slower or faster the steering will get as you speed up.",
+    rateIncreaseWithSpeed    = "How much slower or faster the steering gets as you speed up.",
     selfSteerResponse        = "How aggressive the self-steer force will fight to keep the car straight.\nLow = looser feel and easier to oversteer, high = more assistance to prevent oversteer and keep the car stable.",
-    dampingStrength          = "Prevents the self-steer force from overcorrecting.\nHigher 'Response' and 'Max angle' settings require more damping to prevent the self-steer force from making the car wobble.",
+    dampingStrength          = "Counteracts the car's angular momentum which prevents the self-steer force from overcorrecting.\nHigher = more stability.\nHigher 'Response' and 'Max angle' settings require more damping to stop the car from wobbling.\nThe damping force is not limited by the 'Max angle' setting.",
     maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\nBasically this limits how big of a slide the self-steer can help to recover from.",
     countersteerResponse     = "High = more effective manual countersteering, but also easier to overcorrect a slide.",
-    maxDynamicLimitReduction = "How much the steering angle can reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more \"raw\" and more prone to steering too much, high = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn.\nIf you like to throw the car into a turn more aggressively, set it lower."
+    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower."
 }
 
 local sectionPadding = 10
@@ -115,27 +124,32 @@ local function addTooltipToLastItem(tooltipKey)
     end
 end
 
-local function showCheckbox(cfgKey, name, inverted)
+local function showCheckbox(cfgKey, name, inverted, disabled, indent)
+    indent = indent or sectionPadding
     local val = not uiData[cfgKey]
     if not inverted then val = not val end
-    ui.offsetCursorX(sectionPadding)
-    if ui.checkbox(name, val) then
+    ui.offsetCursorX(indent)
+    if disabled then ui.pushDisabled() end
+    if ui.checkbox(name, val) and not disabled then
         uiData[cfgKey] = not uiData[cfgKey]
     end
+    if disabled then ui.popDisabled() end
     addTooltipToLastItem(cfgKey)
 end
 
-local function showConfigSlider(cfgKey, name, format, minVal, maxVal, valueMult, locked, onHover, hoverOnInteract)
+local function showConfigSlider(cfgKey, name, format, minVal, maxVal, valueMult, locked, width, indent, disabled, onHover, hoverOnInteract)
+    indent = indent or sectionPadding
+    width = width or ui.availableSpaceX()
     local displayVal = uiData[cfgKey] * valueMult
     if locked then
-        ui.offsetCursorX(sectionPadding)
+        ui.offsetCursorX(indent)
         local cursorOld = ui.getCursor()
-        ui.drawRectFilled(cursorOld, tmpVec1:set(cursorOld.x + ui.availableSpaceX() - sectionPadding, cursorOld.y + ui.frameHeight()), lockedSliderColor)
+        ui.drawRectFilled(cursorOld, tmpVec1:set(cursorOld.x + width - indent, cursorOld.y + ui.frameHeight()), lockedSliderColor)
         ui.setCursorX(cursorOld.x)
-        ui.textAligned(string.format(name .. ": " .. format, displayVal), tmpVec1:set(0.5, 0.5), tmpVec2:set(ui.availableSpaceX() - sectionPadding, ui.frameHeight()))
+        ui.textAligned(string.format(name .. ": " .. format, displayVal), tmpVec1:set(0.5, 0.5), tmpVec2:set(width - indent, ui.frameHeight()))
         ui.setCursor(cursorOld)
         ui.setItemAllowOverlap()
-        ui.invisibleButton("##" .. cfgKey, tmpVec1:set(ui.availableSpaceX() - sectionPadding, ui.frameHeight()))
+        ui.invisibleButton("##" .. cfgKey, tmpVec1:set(width - indent, ui.frameHeight()))
         addTooltipToLastItem(cfgKey)
         if onHover and ui.itemHovered() then onHover() end
         local preImageCursor = ui.getCursor()
@@ -148,9 +162,11 @@ local function showConfigSlider(cfgKey, name, format, minVal, maxVal, valueMult,
         if math.abs(newValue - displayVal) > (1e-5 * (maxVal - minVal)) then uiData[cfgKey] = newValue end
         return newValue
     else
-        ui.offsetCursorX(sectionPadding)
-        ui.setNextItemWidth(ui.availableSpaceX() - sectionPadding)
+        ui.offsetCursorX(indent)
+        ui.setNextItemWidth(width - indent)
+        if disabled then ui.pushDisabled() end
         local value, changed = ui.slider("##" .. cfgKey, displayVal, minVal, maxVal, name .. ": " .. format)
+        if disabled then ui.popDisabled() end
         value = math.clamp(value, minVal, maxVal) / valueMult
         local changedFr = math.abs(value - displayVal) > (1e-5 * (maxVal - minVal))
         addTooltipToLastItem(cfgKey)
@@ -172,16 +188,18 @@ local function showHeader(text)
     ui.header(text)
 end
 
-local function showButton(text, tooltipKey, callback)
-    ui.offsetCursorX(sectionPadding)
-    local clicked = ui.button(text, tmpVec1:set(ui.availableSpaceX() - sectionPadding, ui.frameHeight()))
+local function showButton(text, tooltipKey, callback, indent)
+    indent = indent or sectionPadding
+    ui.offsetCursorX(indent)
+    local clicked = ui.button(text, tmpVec1:set(ui.availableSpaceX() - indent, ui.frameHeight()))
     addTooltipToLastItem(tooltipKey)
-    if clicked then callback() end
+    if clicked and callback then callback() end
     return clicked
 end
 
-local function showCompactDropdown(label, tooltipKey, values, selectedIndex)
-    ui.offsetCursorX(sectionPadding)
+local function showCompactDropdown(label, tooltipKey, values, selectedIndex, indent)
+    indent = indent or sectionPadding
+    ui.offsetCursorX(indent)
     ui.pushItemWidth(ui.availableSpaceX() * 0.5)
     local selection = ui.combo(string.format("%s - %s", label, values[selectedIndex]), selectedIndex, ui.ComboFlags.NoPreview, values)
     addTooltipToLastItem(tooltipKey)
@@ -381,15 +399,15 @@ end
 local function savePreset(name)
     presets[name] = {}
     for _, pKey in ipairs(presetKeys) do
-        presets[name][pKey] = uiData[pKey]
+        if uiData[pKey] ~= nil then presets[name][pKey] = uiData[pKey] end
     end
     savedPresets.presets = _json.encode(presets)
 end
 
 local function loadPreset(name)
     if presets[name] == nil then return false end
-    for pKey, pVal in pairs(presets[name]) do
-        if uiData[pKey] ~= nil then uiData[pKey] = pVal end
+    for _, pKey in ipairs(presetKeys) do
+        if uiData[pKey] ~= nil and presets[name][pKey] ~= nil then uiData[pKey] = presets[name][pKey] end
     end
     return true
 end
@@ -400,11 +418,53 @@ local function deletePreset(name)
     savedPresets.presets = _json.encode(presets)
 end
 
+local function factoryReset()
+    presets = _json.decode(_factoryPresetsStr)
+    savedPresets.presets = _factoryPresetsStr
+
+    uiData.assistEnabled        = true
+    uiData.autoClutch           = false
+    uiData.autoShifting         = false
+    uiData.autoShiftingCruise   = true
+    uiData.autoShiftingDownBias = 0.7
+    uiData.triggerFeedbackL     = 0.0
+    uiData.triggerFeedbackR     = 0.0
+    uiData.graphSelection       = 1
+    uiData.keyboardMode         = 0
+
+    loadPreset("Default")
+
+    presetsWindowEnabled = false
+
+    ac.broadcastSharedEvent("AGA_factoryReset")
+end
+
+local function pushStyle()
+    ui.pushFont(ui.Font.Small)
+    ui.pushStyleColor(ui.StyleColor.Button, buttonColor)
+    ui.pushStyleColor(ui.StyleColor.ButtonHovered, controlHoverColor)
+    ui.pushStyleColor(ui.StyleColor.FrameBgHovered, controlHoverColor)
+    ui.pushStyleColor(ui.StyleColor.CheckMark, controlAccentColor)
+    ui.pushStyleColor(ui.StyleColor.ButtonActive, controlActiveColor)
+    ui.pushStyleColor(ui.StyleColor.FrameBgActive, controlActiveColor)
+    ui.pushStyleColor(ui.StyleColor.SliderGrab, buttonColor)
+    ui.pushStyleColor(ui.StyleColor.SliderGrabActive, controlAccentColor)
+    ui.pushStyleColor(ui.StyleColor.HeaderHovered, controlHoverColor)
+    ui.pushStyleColor(ui.StyleColor.HeaderActive, controlActiveColor)
+    ui.pushStyleColor(ui.StyleColor.TextSelectedBg, controlAccentColor)
+    ui.pushStyleColor(ui.StyleColor.ChildBg, childBgColor)
+end
+
+local function popStyle()
+    ui.popStyleColor(12)
+    ui.popFont()
+end
+
 local currentPresetName = ""
 local saveFeedbackStart = -1
 local loadFeedbackStart = -1
 local function drawPresetsWindow()
-    ui.beginToolWindow("presets", tmpVec1:set(ui.windowPos()):add(tmpVec2:set(0, -270)), tmpVec3:set(270, 270), false, true)
+    ui.beginToolWindow("AGA_presets", tmpVec1:set(ui.windowPos()):add(tmpVec2:set(0, -270)), tmpVec3:set(270, 270), false, true)
 
     ui.text("Preset name:")
 
@@ -462,6 +522,13 @@ local function drawPresetsWindow()
         return 0
     end)
 
+    popStyle()
+    ui.setCursor(tmpVec1:set(270 - 20, 0))
+    if ui.button("x", tmpVec1:set(20, 20)) then
+        togglePresetsWindow()
+    end
+    pushStyle()
+
     ui.endToolWindow()
 end
 
@@ -482,30 +549,15 @@ function script.windowMain(dt)
         return
     end
 
-    ui.pushFont(ui.Font.Small)
-    ui.pushStyleColor(ui.StyleColor.Button, buttonColor)
-    ui.pushStyleColor(ui.StyleColor.ButtonHovered, controlHoverColor)
-    ui.pushStyleColor(ui.StyleColor.FrameBgHovered, controlHoverColor)
-    ui.pushStyleColor(ui.StyleColor.CheckMark, controlAccentColor)
-    ui.pushStyleColor(ui.StyleColor.ButtonActive, controlActiveColor)
-    ui.pushStyleColor(ui.StyleColor.FrameBgActive, controlActiveColor)
-    ui.pushStyleColor(ui.StyleColor.SliderGrab, buttonColor)
-    ui.pushStyleColor(ui.StyleColor.SliderGrabActive, controlAccentColor)
-    ui.pushStyleColor(ui.StyleColor.HeaderHovered, controlHoverColor)
-    ui.pushStyleColor(ui.StyleColor.HeaderActive, controlActiveColor)
-    ui.pushStyleColor(ui.StyleColor.TextSelectedBg, controlAccentColor)
-    ui.pushStyleColor(ui.StyleColor.ChildBg, childBgColor)
+    pushStyle()
     -- ui.pushStyleColor(ui.StyleColor.Border, black)
     -- ui.pushStyleVar(ui.StyleVar.WindowBorderSize, 1)
 
     showHeader("General:")
 
-    showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     showCheckbox("assistEnabled", "Enable Advanced Gamepad Assist")
+    showButton("Re-calibrate steering", "calibration", sendRecalibrationEvent)
     showButton(presetsWindowEnabled and "Hide presets" or "Show presets", "presets", togglePresetsWindow)
-    uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection)
-    uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1) - 1
-    -- showCheckbox("autoClutch", "Anti-stall clutch", false)
     showCheckbox("useFilter", "Simplified settings", false)
 
     if uiData.useFilter then
@@ -527,7 +579,7 @@ function script.windowMain(dt)
     showConfigSlider("maxSelfSteerAngle", "Max angle", "%.1f°", 0.0,  90.0,   1.0, uiData.useFilter)
     showConfigSlider("dampingStrength",   "Damping",   "%.f%%", 0.0, 100.0, 100.0, uiData.useFilter)
 
-    showDummyLine(0.25)
+    showDummyLine(1.0)
     ui.alignTextToFramePadding()
     ui.textWrapped("Tip: hold SHIFT to fine-tune sliders, or CTRL-click them to edit the values!")
 
@@ -548,6 +600,53 @@ function script.windowMain(dt)
 
     if presetsWindowEnabled then drawPresetsWindow() end
 
-    ui.popStyleColor(12)
-    ui.popFont()
+    popStyle()
+end
+
+local resetClicked = 0
+function script.windowSettings(dt)
+    if not uiData._appCanRun then return end
+
+    pushStyle()
+
+    uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection, 0)
+    uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1, 0) - 1
+
+    showDummyLine(0.25)
+
+    showCheckbox("autoClutch", "Automatic clutch", false, false, 0)
+
+    showDummyLine(0.25)
+
+    showCheckbox("autoShifting", "Automatic shifting", false, false, 0)
+    showCheckbox("autoShiftingCruise", "Auto-switch into cruise mode", false, not uiData.autoShifting, 20)
+    showConfigSlider("autoShiftingDownBias", "Downshift bias", "%.f%%", 0.0, 90.0, 100.0, false, 200.0, 20, not uiData.autoShifting)
+
+    showDummyLine(0.25)
+
+    showConfigSlider("triggerFeedbackL", "Left trigger feedback", "%.f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+    showConfigSlider("triggerFeedbackR", "Right trigger feedback", "%.f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+
+    showDummyLine(0.25)
+
+    local reset = showButton(resetClicked > 0 and "⚠️ Confirm?" or "⚠️ Factory reset", "factoryReset", nil, 0)
+
+    if reset then
+        if resetClicked > 0.2 then
+            factoryReset()
+            resetClicked = 0
+        elseif resetClicked == 0 then
+            resetClicked = resetClicked + dt
+        end
+    end
+
+    if resetClicked > 3.0 then
+        resetClicked = 0
+    end
+
+    if resetClicked > 0 then
+        resetClicked = resetClicked + dt
+    end
+
+    popStyle()
 end

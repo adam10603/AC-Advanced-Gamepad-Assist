@@ -1,6 +1,6 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.2-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0-green.svg)
+![Version](https://img.shields.io/badge/Version-1.3-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
@@ -15,8 +15,9 @@ The main features of this mod include:
  - Accurate steering limit, based on the optimal slip angle of the font tires
  - Self-steer tendency that mimics the effects of the car's caster angle and helps with stability
  - Allows for keyboard and controller driving at the same time
+ - Custom auto-clutch and automatic shifting algorithms, and controller vibration options
  - Highly customizable settings through a UI app
- - Real-time readouts of tire slip and more through the UI app
+ - Real-time readouts of tire slip and more
 
 ## 📖 Why?
 
