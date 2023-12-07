@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/8Cs4Kaq.png)
+![UI app](https://i.imgur.com/QLg9hFs.png)
 
 # General
 
@@ -14,16 +14,6 @@ This button is for once again performing the same calibration. This shouldn't be
 
 ___
 
-### Graphs
-
-You can use this to display several graphs / values to the right of the UI app window. It has three options:
-
- - **None** - No graphs at all.
- - **Static** - Shows how the car's self-steer force will act. You can use this to adjust the [Response](#response) and [Max angle](#max-angle) settings and see their effects.
- - **Live** - Shows the self-steer force graph as well as some additional values, all of which will be updated on the fly as you drive.
-
-___
-
 ### Enable Advanced Gamepad Assist
 
 Enables or disables the entire assist. When disabled, Assetto Corsa's own input handling will be used without any changes.
@@ -32,27 +22,13 @@ ___
 
 ### Show Presets
 
-This opens a window where you can save or load presets. Presets store all settings except for [Enable Advanced Gamepad Assist](#enable-advanced-gamepad-assist).
+![Presets](https://i.imgur.com/Mus0k2L.png)
 
-___
+The "Show Presets" button opens a window where you can save or load presets.
 
-### Keyboard
+Presets store all the settings in the main window, except for [Enable Advanced Gamepad Assist](#enable-advanced-gamepad-assist).
 
-Allows for gas, brake, and steering input from the keyboard using the keybinds that are set in AC's control settings. You can still use a controller at the same time if this is enabled.
-
-For all the vehicle controls to work (like shifting or handbrake) you also have to enable ***Combine with keyboard*** in AC's control settings, with the ***Input method*** set to ***Gamepad***!
-
-There are four options for this setting:
- - **Off** - Disables keyboard driving.
- - **On** - Allows keyboard driving, but with no throttle or brake assistance.
- - **On (brake help)** - Allows keyboard driving, and provides brake assistance (similar to ABS).
- - **On (gas + brake help)** - Allows keyboard driving, and provides throttle and brake assistance (similar to TCS and ABS).
-
-Brake assistance only works if ABS is off, and throttle assistance only works if TCS is off.
-
-These additional assists are similar to what AC would also do to keyboard input by default. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
-
-Also, seering input on keyboard will have a bit more smoothing compared to controller steering.
+Presets DO NOT store any setting from the [Extra settings](#extra-settings) menu.
 
 ___
 
@@ -132,8 +108,79 @@ ___
 
 ### Damping
 
-The damping force is what prevents the self-steer force from overcorrecting. Without damping, the self-steer can make the car wobble (especially high-grip cars at high speed).
+The damping force will counteract the car's rotational momentum. This will prevent the self-steer force from overcorrecting and result in a more stable feel. Without damping, the self-steer can make the car wobble (especially high-grip cars at high speed).
 
 ![Damping](https://i.imgur.com/RxFHzgC.gif)
 
-The stronger you make the [Response](#response) and [Max angle](#max-angle) settings, the more damping will be needed to keep the self-steer force in check. However, too much damping can cause things to feel a bit off, so as a rule of thumb I'd recommend to keep it at a similar value to the [Response](#response) setting.
+The stronger you make the [Response](#response) and [Max angle](#max-angle) settings, the more damping will be needed to keep the self-steer force in check. However, too much damping can cause the car to feel numb, so as a rule of thumb I'd recommend to keep it at a similar value to the [Response](#response) setting.
+
+# Extra settings
+
+Click the gear icon ⚙️ at the top of the UI app to access additional features.
+
+![UI app settings](https://i.imgur.com/P3UspAs.png)
+
+### Graphs
+
+You can use this to display several graphs / values to the right of the UI app window. It has three options:
+
+ - **None** - No graphs at all.
+ - **Static** - Shows how the car's self-steer force will act. You can use this to adjust the [Response](#response) and [Max angle](#max-angle) settings and see their effects.
+ - **Live** - Shows the self-steer force graph as well as some additional values, all of which will be updated on the fly as you drive.
+
+___
+
+### Keyboard
+
+Allows for gas, brake, and steering input from the keyboard using the keybinds that are set in AC's control settings. You can still use a controller at the same time if this is enabled.
+
+For all the vehicle controls to work (like shifting or handbrake) you also have to enable ***Combine with keyboard*** in AC's control settings, with the ***Input method*** set to ***Gamepad***!
+
+There are four options for this setting:
+ - **Off** - Disables keyboard driving.
+ - **On** - Allows keyboard driving, but with no throttle or brake assistance.
+ - **On (brake help)** - Allows keyboard driving, and provides brake assistance (similar to ABS).
+ - **On (gas + brake help)** - Allows keyboard driving, and provides throttle and brake assistance (similar to TCS and ABS).
+
+Brake assistance only works if ABS is off, and throttle assistance only works if TCS is off.
+
+These additional assists are similar to what AC would also do to keyboard input by default. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
+
+Also, seering input on keyboard will have a bit more smoothing compared to controller steering.
+
+___
+
+### Automatic clutch
+
+Automatically controls the clutch when the engine would otherwise stall or when setting off from a standstill.
+
+Doesn't work on cars that don't have a clutch input, such as semi-automatics. If this is the case, an on-screen message will inform you that the current car does not support a custom auto-clutch.
+
+___
+
+### Automatic shifting
+
+Automatically changes gears using a more advanced algorithm than the default one in AC. It's suited for casual cruising, performance driving, and drifting alike. It keeps the shift-up and shift-down buttons functional too, alongside the automatic shifting.
+
+The automatic shifting algorithm will read the car's power curve and calculate the optimal shifting points for each gear to achieve the best acceleration. Currently this doesn't account for the MGU-K (like in modern F1 cars), but this will be improved in the future.
+
+There are two options to further tweak automatic shifting:
+
+ - **Auto-switch into cruise mode** - Automatically switches between performance driving and cruise mode based on your throttle input. The car will upshift a lot sooner when in cruise mode. You can turn this off if you only do racing, especially for rolling starts!
+ - **Downshift bias** - Changes how aggressively the car downshifts when decelerating. A high value will make the car downshift basically as soon as it can, however, this can sometimes leave you very near the end of a gear when you start accelerating again.
+
+___
+
+### Left / right trigger feedback
+
+This option utilizes the trigger vibrations in modern Xbox controllers. The sliders determine the strength of the vibration feedback on each trigger. A value of ***0%*** will turn off vibrations.
+
+Left trigger vibrations are sent when driving without ABS and experiencing a wheel lockup, and right trigger vibrations are sent when driving without TCS and experiencing wheelspin.
+
+The vibration feedback has two steps: a light vibration when approaching the limit, and a stronger vibration when going over the limit.
+
+___
+
+### Factory reset
+
+Deletes ALL presets, restores factory presets, and resets every setting to its default value. You have to click it twice to confirm.

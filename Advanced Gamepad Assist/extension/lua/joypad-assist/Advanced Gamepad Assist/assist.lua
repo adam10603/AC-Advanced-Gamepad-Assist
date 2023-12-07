@@ -1,6 +1,7 @@
 if car.isAIControlled then return end
 
 local lib = require "AGALib"
+local extras = require "extras"
 
 -- CONFIG =====================================================================================
 
@@ -16,8 +17,13 @@ local uiData = ac.connect{
     assistEnabled            = ac.StructItem.boolean(),
     graphSelection           = ac.StructItem.int32(),
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
-    useFilter                = ac.StructItem.boolean(),
     autoClutch               = ac.StructItem.boolean(),
+    autoShifting             = ac.StructItem.boolean(),
+    autoShiftingCruise       = ac.StructItem.boolean(),
+    autoShiftingDownBias     = ac.StructItem.double(),
+    triggerFeedbackL         = ac.StructItem.double(),
+    triggerFeedbackR         = ac.StructItem.double(),
+    useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
     rateIncreaseWithSpeed    = ac.StructItem.double(),
@@ -31,10 +37,15 @@ local uiData = ac.connect{
 -- Config saved to disk
 local savedCfg = ac.storage({
     assistEnabled            = true,
-    keyboardMode             = 0,
     graphSelection           = 1,
-    useFilter                = true,
+    keyboardMode             = 0,
     autoClutch               = false,
+    autoShifting             = false,
+    autoShiftingCruise       = true,
+    autoShiftingDownBias     = 0.7,
+    triggerFeedbackL         = 0.0,
+    triggerFeedbackR         = 0.0,
+    useFilter                = true,
     filterSetting            = 0.5,
     steeringRate             = 0.5,
     rateIncreaseWithSpeed    = 0.1,
@@ -52,6 +63,11 @@ uiData.keyboardMode             = savedCfg.keyboardMode
 uiData.graphSelection           = savedCfg.graphSelection
 uiData.useFilter                = savedCfg.useFilter
 uiData.autoClutch               = savedCfg.autoClutch
+uiData.autoShifting             = savedCfg.autoShifting
+uiData.autoShiftingCruise       = savedCfg.autoShiftingCruise
+uiData.autoShiftingDownBias     = savedCfg.autoShiftingDownBias
+uiData.triggerFeedbackL         = savedCfg.triggerFeedbackL
+uiData.triggerFeedbackR         = savedCfg.triggerFeedbackR
 uiData.filterSetting            = savedCfg.filterSetting
 uiData.steeringRate             = savedCfg.steeringRate
 uiData.rateIncreaseWithSpeed    = savedCfg.rateIncreaseWithSpeed
@@ -71,7 +87,7 @@ local kbSteerSmoother          = lib.SmoothTowards:new( 7.0,  1.0,  -1.0,  1.0, 
 local selfSteerSmoother        = lib.SmoothTowards:new(10.0,  0.15, -1.0,  1.0,  0.0) -- Smooths out the self-steer force
 local limitSmoother            = lib.SmoothTowards:new( 8.0,  0.01,  0.0, 32.0, 32.0) -- Smooths out changes in the steering limit
 -- local limitSmoother            = lib.SmoothTowards:new(12.0,  0.01,  0.0, 32.0, 32.0) -- Smooths out changes in the steering limit
-local targetFrontSlipSmoother  = lib.SmoothTowards:new( 0.05, 0.05,  0.0, 15.0,  7.0) -- Smooths the measured ideal slip angle for the front wheels
+local targetFrontSlipSmoother  = lib.SmoothTowards:new( 0.1,  0.05,  0.0, 15.0,  7.0) -- Smooths the measured ideal slip angle for the front wheels
 local groundedSmoother         = lib.SmoothTowards:new( 5.0,  1.0,   0.0,  1.0,  1.0) -- Smooths the value that indicates if any of the front wheels are grounded
 local frontSlipDisplaySmoother = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0,  0.0) -- Smooths the relative front slip value sent to the UI app for visualization
 local rearSlipDisplaySmoother  = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0,  0.0) -- Smooths the relative rear slip value sent to the UI app for visualization
@@ -92,6 +108,7 @@ end
 
 -- Calibration stuff
 
+local calibrationPreDelay      = 0
 local calibrationDelay         = 0
 local calibrationLockDelay     = 0
 local calibrationStage         = 0
@@ -126,6 +143,11 @@ local function updateConfig(inputData)
     savedCfg.graphSelection           = uiData.graphSelection
     savedCfg.useFilter                = uiData.useFilter
     savedCfg.autoClutch               = uiData.autoClutch
+    savedCfg.autoShifting             = uiData.autoShifting
+    savedCfg.autoShiftingCruise       = uiData.autoShiftingCruise
+    savedCfg.autoShiftingDownBias     = uiData.autoShiftingDownBias
+    savedCfg.triggerFeedbackL         = uiData.triggerFeedbackL
+    savedCfg.triggerFeedbackR         = uiData.triggerFeedbackR
     savedCfg.filterSetting            = uiData.filterSetting
     savedCfg.steeringRate             = uiData.steeringRate
     savedCfg.rateIncreaseWithSpeed    = uiData.rateIncreaseWithSpeed
@@ -201,9 +223,18 @@ end
 
 -- Hijacks the throttle / brake / handbrake/ steering inputs to perform calibration. Returns `true` if the calibration is over or aborted, `false` if it's in progress.
 local function performCalibration(inputData, vehicle, inverseBodyTransform, dt)
-    if vehicle.velocity:length() > 0.5 then
-        calibrationStage = 2
-        return true
+    if vehicle.velocity:length() > 0.5 and calibrationStage == 0 then
+        calibrationPreDelay = calibrationPreDelay + dt
+        if calibrationPreDelay > 1.0 then
+            calibrationStage = 2
+            return true
+        else
+            inputData.gas       = 0.0
+            inputData.handbrake = 1.0
+            inputData.brake     = 0.0
+            inputData.clutch    = 0.0
+            return false
+        end
     end
 
     if calibrationStage < 2 then
@@ -301,12 +332,18 @@ end
 -- end
 
 local storedLocalWheelVel = {[0] = vec3(), vec3(), vec3(), vec3()} -- Stores local wheel velocities to avoid creating new vectors on every update
--- local storedWeightedFLocalVel = vec3()
+local storedWeightedFLocalVel = vec3()
 local storedFAxleLocalVel = vec3()
 local storedRAxleLocalVel = vec3()
 local storedMiddleVel = vec3()
 local storedIdleRPM   = 0
 local storedMaxRPM    = 0
+local storedTorqueCurve = nil
+local storedTurboData = nil
+local storedShiftUpTime = -1
+local storedShiftDownTime = -1
+-- local storedHasBlip = false
+local storedMissingEngineIni = false
 
 -- Returns all relevant measurements and data related to the vehicle, or `nil` if the steering clibration has not finished yet
 local function getVehicleData(dt, skipCalibration)
@@ -322,23 +359,87 @@ local function getVehicleData(dt, skipCalibration)
     local rWheelWeights   = {lib.zeroGuard(vehicle.wheels[2].load), lib.zeroGuard(vehicle.wheels[3].load)}
     local allWheelWeights = {fWheelWeights[1], fWheelWeights[2], rWheelWeights[1], rWheelWeights[2]}
 
-    -- lib.weightedVecAverage({storedLocalWheelVel[0], storedLocalWheelVel[1]}, fWheelWeights, storedWeightedFLocalVel)
-    lib.getPointVelocity(fAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedFAxleLocalVel)
-    lib.getPointVelocity(rAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedRAxleLocalVel)
-    lib.getPointVelocity(avgWheelPos, vehicle.localAngularVelocity, vehicle.localVelocity, storedMiddleVel)
-
     -- Updating wheel loads and local wheel velocities
     for i = 0, 3 do
         lib.getPointVelocity(localWheelPositions[i], vehicle.localAngularVelocity, vehicle.localVelocity, storedLocalWheelVel[i])
     end
 
-    if storedIdleRPM == 0 or storedMaxRPM == 0 then
+    lib.weightedVecAverage({storedLocalWheelVel[0], storedLocalWheelVel[1]}, fWheelWeights, storedWeightedFLocalVel)
+    lib.getPointVelocity(fAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedFAxleLocalVel)
+    lib.getPointVelocity(rAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedRAxleLocalVel)
+    lib.getPointVelocity(avgWheelPos, vehicle.localAngularVelocity, vehicle.localVelocity, storedMiddleVel)
+
+    if (storedIdleRPM == 0 or storedMaxRPM == 0) and not storedMissingEngineIni then
         local engineINI = ac.INIConfig.carData(vehicle.index, "engine.ini")
-        storedIdleRPM   = engineINI:get("ENGINE_DATA", "MINIMUM", 900)
-        storedMaxRPM    = engineINI:get("ENGINE_DATA", "LIMITER", 7000)
+
+        if table.nkeys(engineINI.sections) > 0 then
+            storedIdleRPM   = engineINI:get("ENGINE_DATA", "MINIMUM", 900)
+            storedMaxRPM    = math.min(engineINI:get("ENGINE_DATA", "LIMITER", 99999), engineINI:get("DAMAGE", "RPM_THRESHOLD", 99999))
+
+            if storedMaxRPM == 99999 then
+                storedMaxRPM = ((vehicle.rpmLimiter > 0) and vehicle.rpmLimiter or 7000)
+            end
+
+            storedTurboData = {}
+            for i = 0, 3, 1 do
+                local maxBoost   = engineINI:get("TURBO_" .. i, "MAX_BOOST", 0)
+                local wasteGate  = engineINI:get("TURBO_" .. i, "WASTEGATE", 0)
+                local boostLimit = math.min(maxBoost, wasteGate)
+                if boostLimit ~= 0 then
+                    local referenceRPM    = engineINI:get("TURBO_" .. i, "REFERENCE_RPM", -1)
+                    local gamma           = engineINI:get("TURBO_" .. i, "GAMMA", -1)
+
+                    if referenceRPM ~= -1 and gamma ~= -1 then
+                        local controller      = ac.INIConfig.carData(vehicle.index, "ctrl_turbo" .. i .. ".ini")
+                        local controllerInput = controller:get("CONTROLLER_0", "INPUT", "")
+                        local controllerLUT   = controller:tryGetLut("CONTROLLER_0", "LUT")
+
+                        if controllerLUT then
+                            controllerLUT.useCubicInterpolation = true
+                            controllerLUT.extrapolate = true
+                        end
+
+                        table.insert(storedTurboData, {
+                            boostLimit = boostLimit,
+                            referenceRPM = referenceRPM,
+                            gamma = gamma,
+                            controllerInput = controllerInput,
+                            controllerLUT = controllerLUT
+                        })
+                    end
+                end
+            end
+
+            storedTorqueCurve = ac.DataLUT11.carData(vehicle.index, engineINI:get("HEADER", "POWER_CURVE", "power.lut")) -- engineINI:tryGetLut("HEADER", "POWER_CURVE")
+
+            if storedTorqueCurve then
+                storedTorqueCurve.useCubicInterpolation = true -- // TODO is this right?
+                storedTorqueCurve.extrapolate = true
+            end
+        else
+            ac.debug("_OK", true)
+            storedMissingEngineIni = true
+        end
+    end
+
+    if storedShiftUpTime == -1 or storedShiftDownTime == -1 then
+        local drivetrainINI = ac.INIConfig.carData(vehicle.index, "drivetrain.ini")
+        storedShiftUpTime   = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50)
+        storedShiftDownTime = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50)
+        -- storedHasBlip       = (drivetrainINI:get("AUTOBLIP", "ELECTRONIC", 0) == 1)
+        -- local hasProtection = drivetrainINI:get("DOWNSHIFT_PROTECTION", "ACTIVE", 0)
+        -- if hasProtection == 1 then
+        --     storedDownshiftProtection = drivetrainINI:get("DOWNSHIFT_PROTECTION", "OVERREV", nil)
+        -- end
     end
 
     local cPhys = ac.getCarPhysics(vehicle.index)
+
+    -- ac.debug("_INERTIA", cPhys.engineInertia)
+
+    -- ac.debug("_AC_AUTOCLUTCH", vehicle.autoClutch)
+    -- ac.debug("_AC_AUTOSHIFT", vehicle.autoShift)
+
 
     return {
         inputData             = inputData, -- ac.getJoypadState()
@@ -349,6 +450,7 @@ local function getVehicleData(dt, skipCalibration)
         -- localHVelLen          = math.sqrt(vehicle.localVelocity.x * vehicle.localVelocity.x + vehicle.localVelocity.z * vehicle.localVelocity.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
         localHVelLen          = math.sqrt(storedMiddleVel.x * storedMiddleVel.x + storedMiddleVel.z * storedMiddleVel.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
         localAngularVel       = vehicle.localAngularVelocity,
+        localWheelVelocities  = storedLocalWheelVel, -- Wheel velocities in local space, 0-based indexing
         -- fWheelWeights         = fWheelWeights, -- Front wheel loads, for using a weighted average
         -- rWheelWeights         = rWheelWeights, -- Rear wheel loads, for using a weighted average
         travelDirection       = lib.numberGuard(math.deg(math.atan2(storedMiddleVel.x, storedMiddleVel.z))), -- The angle of the vehicle's velocity vector on the local horizontal plane (deg), at the average position of all wheels
@@ -359,7 +461,7 @@ local function getVehicleData(dt, skipCalibration)
         totalNdSlip           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].ndSlip, vehicle.wheels[1].ndSlip, vehicle.wheels[2].ndSlip, vehicle.wheels[3].ndSlip}, allWheelWeights)),
         fwdVelClamped         = math.max(0.0, storedMiddleVel.z), -- Velocity along the local forwrad axis, positive only (m/s)
         steeringLockDeg       = lib.numberGuard(vehicleSteeringLock, math.abs(inputData.steerLock / inputData.steerRatio)),
-        -- weightedFLocalVel     = storedWeightedFLocalVel, -- Weighted average local velocity of the front wheels
+        weightedFLocalVel     = storedWeightedFLocalVel, -- Weighted average local velocity of the front wheels
         fAxleLocalVel         = storedFAxleLocalVel, -- Local velocity of the front axle (same as the average of the front wheels)
         rAxleLocalVel         = storedRAxleLocalVel, -- Local velocity of the rear axle (same as the average of the rear wheels)
         fAxleHVelLen          = math.sqrt(storedFAxleLocalVel.x * storedFAxleLocalVel.x + storedFAxleLocalVel.z * storedFAxleLocalVel.z),
@@ -367,7 +469,15 @@ local function getVehicleData(dt, skipCalibration)
         frontGrounded         = groundedSmoother:get((vehicle.wheels[0].loadK == 0.0 and vehicle.wheels[1].loadK == 0.0) and 0.0 or 1.0, dt), -- Smoothed 0-1 value to indicate if the steered wheels are grounded
         idleRPM               = storedIdleRPM,
         maxRPM                = storedMaxRPM,
-        drivetrainRatio       = cPhys.gearRatio * cPhys.finalRatio
+        RPMRange              = storedMaxRPM - storedIdleRPM,
+        cPhys                 = cPhys,
+        drivetrainRatio       = cPhys.gearRatio * cPhys.finalRatio,
+        baseTorqueCurve       = storedTorqueCurve,
+        turboData             = storedTurboData,
+        shiftUpTime           = storedShiftUpTime / 1000.0,
+        shiftDownTime         = storedShiftDownTime / 1000.0,
+        -- hasBlip               = storedHasBlip,
+        brokenEngineIni       = storedMissingEngineIni
     }
 end
 
@@ -377,7 +487,7 @@ local function calcSteeringRateMult(fwdVelClamped, steeringLockDeg)
     return math.pow(speedAdjustedRate, uiData.rateIncreaseWithSpeed) * uiData.steeringRate
 end
 
--- local counterIndicatorSmoother = lib.SmoothTowards:new(10.0, 1.0, 0.0, 1.0, 0.0)
+local counterIndicatorSmoother = lib.SmoothTowards:new(12.0, 1.0, 0.0, 1.0, 0.0)
 
 -- Returns the corrected sterering angle with the steering limit and self-steer force applied, normalized to the car's steering lock
 local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, steeringRateMult, dt)
@@ -405,15 +515,16 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
 
     -- Steering limit
 
-    local slipCorrection      = 1.03 -- // FIXME some cars change with speed, find out why
+    local slipCorrection      = 1.035 -- // FIXME some cars change with speed, find out why
     local finalTargetSlip     = targetFrontSlipDeg * slipCorrection -- The max slip angle that the front wheels will target
 
     local isCountersteering   = (inputSign ~= math.sign(lib.zeroGuard(vData.rAxleLocalVel.x)) and math.abs(initialSteering) > 1e-6) -- Boolean to indicate if the player is countersteering
-    local counterIndicator    = isCountersteering and lib.inverseLerpClampedEased(4.5, 9.5, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0 -- 0-1 multiplier to indicate if the player is countersteering
+    local counterIndicator    = counterIndicatorSmoother:get(isCountersteering and lib.inverseLerpClampedEased(4.5, 9.5, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0, dt) -- 0-1 multiplier to indicate if the player is countersteering
 
     local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit             -- math.sign(-initialSteering) * selfSteerForce (when added to the limit)
     local targetInward        = finalTargetSlip - clampedFAxleVelAngle -- Steering limit when turning inward
-    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * 0.8 + 0.2) * (math.lerpInvSat(-inputSign * localVelHAngle, 0.0, 30.0) * 0.3 + 0.7)) - (inputSign * localVelHAngle) -- Steering limit when countersteering
+    local counterMult         = math.lerp(math.lerpInvSat(-inputSign * rAxleHVelAngle, 0.0, 30.0) * 0.333 + 0.666, 1.0, uiData.countersteerResponse) -- Makes manual countersteering a bit less sensitive near the center
+    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * counterMult * 0.85 + 0.15)) - (inputSign * rAxleHVelAngle) -- Steering limit when countersteering
 
     local targetSteeringAngle = math.clamp(math.lerp(targetInward, targetCounter, counterIndicator), -vData.steeringLockDeg, vData.steeringLockDeg) -- The steering angle that would result in the targeted slip angle
     local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 0.75), -math.pi * 0.5, math.pi * 0.5)) ^ 6 -- Used to get rid of the steering limit when going backwards
@@ -435,9 +546,9 @@ local function updateTargetSlipAngle(vData, initialSteering, dt)
         local rateMult = 1.0
         if fastLearningTime < 1.5 then
             fastLearningTime = fastLearningTime + dt
-            rateMult = 10.0
+            rateMult = 5.0
         end
-        targetFrontSlipSmoother:getWithRateMult(math.clamp(math.abs(vData.frontSlipDeg) / vData.frontNdSlip, 4, 13.0), dt, rateMult) -- * clamp01(vData.frontNdSlip * 0.05 + 0.95)
+        targetFrontSlipSmoother:getWithRateMult(math.clamp(math.abs(vData.frontSlipDeg) / vData.frontNdSlip, 4, 14.0), dt, rateMult) -- * clamp01(vData.frontNdSlip * 0.05 + 0.95)
     end
 end
 
@@ -510,6 +621,13 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
         kbBrakeSmoother.state    = 0.0
     end
 
+    -- // FIXME detect these in a better way
+    local brakeNdUsed     = vData.totalNdSlip
+    local slipSub         = math.lerp(0.3, 0.4, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
+    local throttleNdUsed  = ((vData.vehicle.tractionType == 1) and vData.frontNdSlip or vData.rearNdSlip) - slipSub
+    extras.brakeNdUsed    = brakeNdUsed
+    extras.throttleNdUsed = throttleNdUsed
+
     if kbMode > 0 then
 
         local finalBrakeTarget = 1.0
@@ -518,37 +636,37 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
         if kbMode > 1 then
             if vData.vehicle.absMode == 0 then
                 -- Applying brake assistance to keyboard input
-                local brakeNdUsed     = vData.totalNdSlip + 0.1 -- Targets 0.9 slip
-                local extBrakeNd      = math.clamp(brakeNdUsed + dt * 5000.0 * (brakeNdUsed - prevBrakeNd), 0, 2.0)
+                local brakNdUsed2     = brakeNdUsed + 0.1
+                local extBrakeNd      = math.clamp(brakNdUsed2 + dt * 5000.0 * (brakNdUsed2 - prevBrakeNd), 0, 2.0)
                 brakeTarget           = sanitize01Input(math.max(0.3, brakeTarget + dt * 10.0 * (extBrakeNd < 1 and (-1.0 * extBrakeNd + 1.0) or (-3.0 * extBrakeNd + 3.0))))
                 finalBrakeTarget      = brakeTarget
-                prevBrakeNd           = brakeNdUsed
+                prevBrakeNd           = brakNdUsed2
             end
         end
 
         if kbMode > 2 then
             if vData.vehicle.tractionControlMode == 0 then
                 -- Applying throttle assistance to keyboard input
-                local slipSub        = math.lerp(0.3, 0.4, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
-                local throttleNdUsed = ((vData.vehicle.tractionType == 1) and vData.frontNdSlip or vData.rearNdSlip) - slipSub
-                local extThrottleNd  = math.clamp(throttleNdUsed + dt * 5000.0 * (throttleNdUsed - prevThrottleNd), 0, 2.0)
-                local tMin           = math.lerp(0.6, 0.8, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
-                throttleTarget       = sanitize01Input(math.max(tMin, throttleTarget + dt * 10.0 * (extThrottleNd < 1 and (-1.0 * extThrottleNd + 1.0) or (-3.0 * extThrottleNd + 3.0))))
-                finalThrottleTarget  = throttleTarget
-                prevThrottleNd       = throttleNdUsed
+                local extThrottleNd     = math.clamp(throttleNdUsed + dt * 5000.0 * (throttleNdUsed - prevThrottleNd), 0, 2.0)
+                local tMin              = math.lerp(0.6, 0.8, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
+                throttleTarget          = sanitize01Input(math.max(tMin, throttleTarget + dt * 10.0 * (extThrottleNd < 1 and (-1.0 * extThrottleNd + 1.0) or (-3.0 * extThrottleNd + 3.0))))
+                finalThrottleTarget     = throttleTarget
+                prevThrottleNd          = throttleNdUsed
+                extras.kbThrottleTarget = throttleTarget
             end
+        else
+            extras.kbThrottleTarget = 1.0
         end
 
         vData.inputData.brake = sanitize01Input(vData.inputData.brake + kbBrake * finalBrakeTarget)
         vData.inputData.gas   = sanitize01Input(vData.inputData.gas + kbThrottle * finalThrottleTarget)
 
+    else
+        extras.kbThrottleTarget = 1.0
     end
 
     return initialSteering, absInitialSteering
 end
-
-local autoClutchRaw = false
-local autoClutchSmoother = lib.SmoothTowards:new(4.0, 1.0, 0.0, 1.0, 0.0)
 
 function script.update(dt)
     if car.isAIControlled or not car.physicsAvailable then return end
@@ -584,46 +702,28 @@ function script.update(dt)
         desiredSteering         = math.lerp(initialSteering, processedSteering, assistFadeIn)
         vData.inputData.steer   = sanitizeSteeringInput(normalizedSteeringToInput(desiredSteering, vData.steeringCurveExponent)) -- Final steering input sent to the car
 
-        -- Anti-stall clutch
-
-        -- local enoughRPM = (vData.vehicle.rpm > (vData.idleRPM + (vData.maxRPM - vData.idleRPM) * 0.4))
-        -- local enoughTorque = math.abs(vData.vehicle.drivetrainTorque * vData.drivetrainRatio / vData.vehicle.mass) > 1.0
-        -- if not autoClutchRaw and (enoughRPM and ((enoughTorque and (vData.inputData.gas > 0.5)) or (vData.inputData.gas > 0.75))) and vData.inputData.brake < 0.01 and vData.inputData.handbrake < 0.01 then
-        --     autoClutchRaw = true
-        -- end
-
-        -- if autoClutchRaw and vData.vehicle.rpm < vData.idleRPM * 1.05 then
-        --     autoClutchRaw = false
-        -- end
-
-        -- if vData.inputData.clutch < 0.01 then
-        --     autoClutchRaw = true
-        -- end
-
-        -- local autoClutchRawVal = (autoClutchRaw and 1.0 or 0.0)
-        -- local autoClutchRate = (autoClutchRawVal > autoClutchSmoother.state) and (0.5 * vData.inputData.gas) or math.clamp(((vData.idleRPM * 1.05) / vData.vehicle.rpm - 1.0) * 50.0 + 1.0, 1.0, 30.0)
-        -- local autoClutch = autoClutchSmoother:getWithRateMult(autoClutchRawVal, dt, autoClutchRate)
-
-        -- if uiData.autoClutch and autoClutch < vData.inputData.clutch then
-        --     vData.inputData.clutch = autoClutch
-        -- end
+        extras.update(vData, uiData, absInitialSteering, dt) -- Updating extra functionality like auto clutch etc.
     end
 
     updateDisplayValues(vData, assistFadeIn, uiData.assistEnabled, dt) -- Updating graphs
 
     -- Logging data
 
-    ac.debug("A) Relative front slip",       string.format("%.2f",   vData.frontNdSlip))
-    ac.debug("B) Relative rear slip",        string.format("%.2f",   vData.rearNdSlip))
-    ac.debug("C) Target front slip angle",   string.format("%.2f°",  targetFrontSlipSmoother:value()))
-    ac.debug("D) Front slip angle",          string.format("%+.2f°", vData.frontSlipDeg))
-    ac.debug("E) Rear slip angle",           string.format("%+.2f°", vData.rearSlipDeg))
-    ac.debug("F) Steering lock (measured)",  string.format("%.2f°",  vData.steeringLockDeg))
-    ac.debug("G) Steering angle",            string.format("%+.2f°", getCurrentSteeringAngleDeg(vData.vehicle, vData.inverseBodyTransform)))
-    ac.debug("H) Intended steering angle",   string.format("%+.2f°", desiredSteering * vData.steeringLockDeg))
-    ac.debug("I) Steering curve (measured)", string.format("%.3f",   vData.steeringCurveExponent))
-    ac.debug("J) Extended physics",          vData.vehicle.extendedPhysics and "Enabled" or "Disabled")
+    local steeringAngleGraphLimit = math.ceil(vehicleSteeringLock / 10.0) * 10.0
 
+    ac.debug("A) Relative front slip [%]",            math.round(vData.frontNdSlip * 100.0, 1), 0.0, 200.0)
+    ac.debug("B) Relative rear slip [%]",             math.round(vData.rearNdSlip * 100.0, 1), 0.0, 200.0)
+    ac.debug("C) Target front slip angle [deg]",      math.round(targetFrontSlipSmoother:value(), 2), 0.0, 20.0)
+    ac.debug("D) Front slip angle [deg]",             math.round(vData.frontSlipDeg, 2), -45.0, 45.0)
+    ac.debug("E) Rear slip angle [deg]",              math.round(vData.rearSlipDeg, 2), -45.0, 45.0)
+    ac.debug("F) Measured steering lock [deg]",       math.round(vData.steeringLockDeg, 2), -90.0, 90.0)
+    ac.debug("G) Steering angle [deg]",               math.round(getCurrentSteeringAngleDeg(vData.vehicle, vData.inverseBodyTransform), 2), -steeringAngleGraphLimit, steeringAngleGraphLimit)
+    ac.debug("H) Intended steering angle [deg]",      math.round(desiredSteering * vData.steeringLockDeg, 2), -steeringAngleGraphLimit, steeringAngleGraphLimit)
+    ac.debug("I) Steering curve exponent (measured)", math.round(vData.steeringCurveExponent, 3))
+    ac.debug("J) RPM",                                vData.vehicle.rpm, 0.0, vData.maxRPM)
+    ac.debug("K) Engine limiter active",              vData.vehicle.isEngineLimiterOn)
+    -- L is power, logged from extras
+    ac.debug("M) Extended physics",                   vData.vehicle.extendedPhysics)
 end
 
 ac.onRelease(function()
