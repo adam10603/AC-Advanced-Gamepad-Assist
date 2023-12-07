@@ -162,6 +162,8 @@ ___
 
 Automatically changes gears using a more advanced algorithm than the default one in AC. It's suited for casual cruising, performance driving, and drifting alike. It keeps the shift-up and shift-down buttons functional too, alongside the automatic shifting.
 
+To use this feature, you have to turn OFF the regular ***Automatic shifting*** option in the game's assist settings! There's no need for the built-in ***Autoblip*** option either, because the custom automatic shifting feature has its own throttle blip.
+
 The automatic shifting algorithm will read the car's power curve and calculate the optimal shifting points for each gear to achieve the best acceleration. Currently this doesn't account for the MGU-K (like in modern F1 cars), but this will be improved in the future.
 
 There are two options to further tweak automatic shifting:
