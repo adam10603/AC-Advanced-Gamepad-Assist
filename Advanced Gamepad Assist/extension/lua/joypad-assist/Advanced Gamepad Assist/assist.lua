@@ -417,7 +417,6 @@ local function getVehicleData(dt, skipCalibration)
                 storedTorqueCurve.extrapolate = true
             end
         else
-            ac.debug("_OK", true)
             storedMissingEngineIni = true
         end
     end
