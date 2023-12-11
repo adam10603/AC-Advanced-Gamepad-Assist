@@ -257,7 +257,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- ================================ Vibration
 
     if (uiData.triggerFeedbackL > 0.0 or uiData.triggerFeedbackR > 0.0) and vData.inputData.gamepadType == ac.GamepadType.XBox and vData.localHVelLen > 0.5 then
-        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 2.0)
+        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 3.0)
 
         if xbox ~= nil then
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
@@ -267,18 +267,6 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             local lVibration = 0.0
             local rVibration = 0.0
 
-            -- if uiData.triggerFeedbackAlwaysOn then
-            --     if not vData.vehicle.absInAction             then tSinceABS = tSinceABS + dt else tSinceABS = 0.0 end
-            --     if not vData.vehicle.tractionControlInAction then tSinceTCS = tSinceTCS + dt else tSinceTCS = 0.0 end
-
-            --     if tSinceABS < 0.025 then
-            --         lVibration = uiData.triggerFeedbackL
-            --     end
-
-            --     if tSinceTCS < 0.025 then
-            --         rVibration = uiData.triggerFeedbackR
-            --     end
-            -- else
             if actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and (vData.vehicle.absMode == 0 or uiData.triggerFeedbackAlwaysOn) then
                 lVibration = (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackL
             end
@@ -286,7 +274,6 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             if actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and (vData.vehicle.tractionControlMode == 0 or uiData.triggerFeedbackAlwaysOn) then
                 rVibration = (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackR
             end
-            -- end
 
             xbox.triggerLeft  = lVibration
             xbox.triggerRight = rVibration
