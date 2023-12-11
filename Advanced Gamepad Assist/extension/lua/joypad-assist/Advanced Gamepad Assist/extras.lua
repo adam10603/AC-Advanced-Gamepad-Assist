@@ -2,14 +2,15 @@ local lib = require "AGALib"
 
 local M = {}
 
-M.kbThrottleTarget = 1.0
+-- Kind of ugly to have another script set these but it's ok for now
+M.rawThrottle      = 0.0 -- Doesn't include the reduction by the keyboard throttle helper
 M.brakeNdUsed      = 0.0
 M.throttleNdUsed   = 0.0
 
 -- Config
-local maxAllowedUpshiftRPM   = 0.998
-local maxAllowedDownshiftRPM = 0.995
-local gearOverrideTime       = 1.5
+local maxAllowedUpshiftRPM   = 0.998 -- Automatic upshifts will never occur higher than this, unless upshifting is not possible at the moment
+local maxAllowedDownshiftRPM = 0.99 -- Automatic downshifts will never occur if the predicted RPM in the target gear would be higher than this, and the prediction is based on speed only, so a slightly higher error margin is needed
+local gearOverrideTime       = 1.0
 local autoShiftCheckDelay    = 0.2
 local gearSetCheckDelay      = 0.05 -- Has to be lower than the above
 
@@ -34,13 +35,14 @@ local revMatchController     = lib.PIDController:new(1.0, 100.0, 0.0, false, 0.0
 
 local tSinceUpshift          = 0.0
 local tSinceDownshift        = 0.0
-local requestedGear          = 0 -- Only used for H shifters
+local requestedGear          = 0 -- The target gear that the script will attempt to shift into
 
 local gearOverride           = nil -- Automatic shifting will not happen while this object exists
 local downshiftProtectedGear = 0 -- After a gear override expires, a gear can still be partially protected from automatic downshifts if it was manually shifted up into
 local RPMFallTime            = 0.0 -- How long the RPM has been decreasing for
 local prevGearUp             = false
 local prevGearDown           = false
+local prevCruiseFactor       = 0.0
 local tSinceHighGearBurnoutStopped = 9999 -- Workaround for a very specific issue
 
 local clutchSampleTimer      = 0.0
@@ -62,18 +64,10 @@ local function getWheels(indicies, vData)
 end
 
 local function getPredictedRPM(speed, vData, drivetrainRatio)
-    drivetrainRatio = drivetrainRatio or vData.drivetrainRatio
+    drivetrainRatio = drivetrainRatio or vData.perfData:getDrivetrainRatio()
     local referenceWheels = getWheels(getReferenceWheelIndicies(vData), vData)
     local wheelDiameter = (referenceWheels[1].tyreRadius + referenceWheels[2].tyreRadius)
     return speed / (math.pi * wheelDiameter) * 60.0 * drivetrainRatio
-end
-
-local function getNormalizedRPM(rpm, vData)
-    return math.lerpInvSat(rpm, vData.idleRPM, vData.maxRPM)
-end
-
-local function getAbsoluteRPM(normalizedRPM, vData)
-    return math.lerp(vData.idleRPM, vData.maxRPM, normalizedRPM)
 end
 
 local function getPredictedSpeedForRPM(rpm, vData, drivetrainRatio)
@@ -85,77 +79,6 @@ end
 
 local function clampGear(nGear, vData)
     return math.clamp(nGear, -1, vData.vehicle.gearCount)
-end
-
-local function getGearRatio(nGear, vData)
-    return vData.cPhys.gearRatios[nGear + 1] or math.NaN
-end
-
-local function getDriveTrainRatioForGear(nGear, vData)
-    return getGearRatio(nGear, vData) * vData.cPhys.finalRatio
-end
-
-local function getRPMInGear(nGear, vData, currentRPM)
-    currentRPM = currentRPM or vData.vehicle.rpm
-    return getGearRatio(nGear, vData) / getGearRatio(vData.vehicle.gear, vData) * currentRPM
-end
-
-local function getMaxTQ(rpm, gear, vData)
-    local baseTorque = vData.baseTorqueCurve:get(rpm)
-
-    local totalBoost = 0.0
-    for _, turbo in ipairs(vData.turboData) do
-        local tBoost = 0.0
-        if turbo.controllerInput == "RPMS" then
-            turbo.controllerLUT.useCubicInterpolation = true
-            tBoost = tBoost + turbo.controllerLUT:get(rpm)
-        elseif turbo.controllerInput == "GEAR" then
-            turbo.controllerLUT.useCubicInterpolation = false
-            tBoost = tBoost + turbo.controllerLUT:get(gear)
-        else
-            tBoost = tBoost + (rpm / turbo.referenceRPM) ^ turbo.gamma
-        end
-        totalBoost = totalBoost + math.min(tBoost, turbo.boostLimit)
-    end
-
-    return baseTorque * (1.0 + totalBoost)
-end
-
-local function getMaxHP(rpm, gear, vData)
-    return getMaxTQ(rpm, gear, vData) * rpm / 5252.0
-end
-
-local function calcShiftingTable(vData)
-    local minRPM = getAbsoluteRPM(0.1, vData)
-    local maxShiftRPM = getAbsoluteRPM(maxAllowedUpshiftRPM, vData)
-
-    for gear = 1, vData.vehicle.gearCount - 1, 1 do
-        local bestArea = 0
-        local bestUpshiftRPM = 0
-        local areaSkew = math.lerp(0.9, 1.4, (gear - 1) / (vData.vehicle.gearCount - 2))
-        local nextOverCurrentRatio = getGearRatio(gear + 1, vData) / getGearRatio(gear, vData)
-        for i = 0, 200, 1 do
-            local upshiftRPM = getAbsoluteRPM(i / 200.0, vData)
-            local nextGearRPM = upshiftRPM * nextOverCurrentRatio
-            if nextGearRPM > minRPM then
-                local area = 0
-                for j = 0, 50, 1 do
-                    local simRPM = math.lerp(nextGearRPM, upshiftRPM, j / 50.0)
-                    area = area + getMaxHP(simRPM, gear, vData) / 50.0 * math.lerp(1.0, areaSkew, (j / 50.0))
-                end
-                if area > bestArea then
-                    bestArea = area
-                    bestUpshiftRPM = upshiftRPM
-                end
-            end
-        end
-        gearData[gear] = {
-            upshiftRPM = math.min(bestUpshiftRPM * ((vData.vehicle.mgukDeliveryCount) > 0 and 1.1 or 1.0), maxShiftRPM),
-            gearStartRPM = (gear == 1) and vData.idleRPM or (gearData[gear - 1].upshiftRPM * getGearRatio(gear, vData) / getGearRatio(gear - 1, vData))
-        }
-    end
-
-    gearData[1].gearStartRPM = (getGearRatio(2, vData) / getGearRatio(1, vData)) * gearData[2].gearStartRPM
 end
 
 local gasSampleTimer = 0.0
@@ -173,20 +96,22 @@ local function getCruiseFactor(vData, uiData, absInitialSteering, dt)
     if gasSampleTimer >= ((absInitialSteering > 0.5 and 0.08 or 0.05)) then -- math.lerp(0.1, 0.15, lib.clamp01(2.0 * absInitialSteering - 1.0))
         gasSampleTimer = 0.0
         if vData.inputData.gas > 0.01 and vData.vehicle.gear > 0 then
-            gasHistory:add(lib.clamp01(vData.inputData.gas / M.kbThrottleTarget))
+            gasHistory:add(lib.clamp01(M.rawThrottle))
         end
     end
 
     if gasHistory:count() > 40 then
-        local cruiseThreshold = 0.75
+        local cruiseThreshold = 0.9
         local maxGas = gasHistory:getMax()
-        local cruiseFactor = ((maxGas < cruiseThreshold) and ((1.0 - ((gasHistory:getMax() / cruiseThreshold) ^ 2.0)) * 0.7 + 0.3) or 0.0)
+        -- local cruiseFactor = ((maxGas < cruiseThreshold) and ((1.0 - ((gasHistory:getMax() / cruiseThreshold) ^ 2.0)) * 0.7 + 0.3) or 0.0)
+        local cruiseFactor = ((maxGas < cruiseThreshold) and lib.clamp01(1.0 - ((gasHistory:getMax() / cruiseThreshold) ^ 2.0)) or 0.0)
         return cruiseFactor
     end
 
     return 0.0
 end
 
+-- Reads manual shifting inputs and manages the gear override state
 local function updateGearOverride(vData, dt)
     if gearOverride ~= nil then
         gearOverride.timer = gearOverride.timer + dt
@@ -223,7 +148,12 @@ local function updateGearOverride(vData, dt)
     prevGearDown = vData.inputData.gearDown
 end
 
-local mismatchTime = 0.0
+local function clearGearOverride()
+    gearOverride = nil
+    downshiftProtectedGear = 0
+end
+
+local mismatchTime = 0.0 -- Counts up while the requested gear does not match the vehicle's current gear
 local function requestGear(vData, dt)
     if vData.vehicle.gear ~= requestedGear then
         mismatchTime = mismatchTime + dt
@@ -231,7 +161,7 @@ local function requestGear(vData, dt)
         mismatchTime = 0.0
     end
 
-    if mismatchTime > (math.max(vData.shiftUpTime, vData.shiftDownTime) + 0.2) then
+    if mismatchTime > (math.max(vData.perfData.shiftUpTime, vData.perfData.shiftDownTime) + 0.2) then
         requestedGear = vData.vehicle.gear
     end
 
@@ -239,18 +169,26 @@ local function requestGear(vData, dt)
     vData.inputData.gearDown = false
 
     if canUseClutch then
-        if requestedGear > vData.vehicle.gear and tSinceUpshift > (vData.shiftUpTime + gearSetCheckDelay) then
-            tSinceUpshift = 0.0
-        elseif requestedGear < vData.vehicle.gear and tSinceDownshift > (vData.shiftDownTime + gearSetCheckDelay) then
-            tSinceDownshift = 0.0
+        -- The clutch has to be disengaged 1 update before the shifting starts
+
+        if requestedGear > vData.vehicle.gear and tSinceUpshift > (vData.perfData.shiftUpTime + gearSetCheckDelay) then
+            tSinceUpshift          = -dt
+            vData.inputData.gas    = 0.0
+            vData.inputData.clutch = 0.0
+        elseif requestedGear < vData.vehicle.gear and tSinceDownshift > (vData.perfData.shiftDownTime + gearSetCheckDelay) then
+            tSinceDownshift        = -dt
+            vData.inputData.gas    = 0.0
+            vData.inputData.clutch = 0.0
         end
 
-        vData.inputData.requestedGearIndex = requestedGear + 1
+        if vData.vehicle.clutch < 0.01 then
+            vData.inputData.requestedGearIndex = requestedGear + 1
+        end
     else
-        if requestedGear > vData.vehicle.gear and tSinceUpshift > (vData.shiftUpTime + gearSetCheckDelay) then
+        if requestedGear > vData.vehicle.gear and tSinceUpshift > (vData.perfData.shiftUpTime + gearSetCheckDelay) then
             tSinceUpshift          = 0.0
             vData.inputData.gearUp = true
-        elseif requestedGear < vData.vehicle.gear and tSinceDownshift > (vData.shiftDownTime + gearSetCheckDelay) then
+        elseif requestedGear < vData.vehicle.gear and tSinceDownshift > (vData.perfData.shiftDownTime + gearSetCheckDelay) then
             tSinceDownshift          = 0.0
             vData.inputData.gearDown = true
         end
@@ -265,17 +203,26 @@ local function getUpshiftThresholdRPM(g, minAllowedRPM, cruiseFactor)
     return math.lerp(minAllowedRPM, gearData[g - 1].upshiftRPM, 1.0 - (cruiseFactor * 0.75))
 end
 
--- local dragStart = 0.0
 local slowLogTimer = 0.0
 local errorShown1 = false -- Bad car data
 local errorShown2 = false -- Clutch cant be ussed for this car
 local errorShown3 = false -- Disable auto shifting in AC
+local errorShown4 = false -- MGU-K warning
+-- local dragStart = 0.0
 
 M.update = function(vData, uiData, absInitialSteering, dt)
+    -- if vData.localHVelLen < 0.1 then
+    --     dragStart = os.clock()
+    -- elseif vData.localHVelLen > (250 / 3.6) then
+    --     if dragStart > 0.0 then
+    --         ac.log(os.clock() - dragStart)
+    --     end
+    --     dragStart = 0.0
+    -- end
 
-    if vData.baseTorqueCurve ~= nil then
+    if vData.perfData.baseTorqueCurve ~= nil then
         if slowLogTimer >= 0.012 then
-            ac.debug("L) Drivertrain power [HP]", vData.vehicle.drivetrainPower, 0.0, math.ceil(getMaxHP(getAbsoluteRPM(0.85, vData), 2, vData) * 0.8 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0)
+            ac.debug("L) Drivertrain power (logged slower) [HP]", vData.vehicle.drivetrainPower, 0.0, math.ceil(vData.perfData:getMaxHP(vData.perfData:getAbsoluteRPM(0.85), 2) * 0.8 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0)
             slowLogTimer = 0.0
         else
             slowLogTimer = slowLogTimer + dt
@@ -290,7 +237,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             vData.inputData.clutch = 0.00069
             return
         else
-            canUseClutch = (math.abs(vData.vehicle.clutch - 0.00069) < 0.000001)
+            canUseClutch = (math.abs(vData.vehicle.clutch - 0.00069) < 1e-6)
             clutchSampled = true
         end
 
@@ -317,8 +264,8 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             local actualBrakeNd = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1) and 0.0 or M.brakeNdUsed
             local actualThrottleNd = (actualBrakeNd == 0) and M.brakeNdUsed or 0.0
 
-            xbox.triggerLeft  = (actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and vData.vehicle.absMode == 0) and ((actualBrakeNd < 0.9 and 0.2 or (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.8 + 0.2)) * uiData.triggerFeedbackL) or 0.0
-            xbox.triggerRight = (actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and vData.vehicle.tractionControlMode == 0) and ((actualThrottleNd < 0.9 and 0.2 or (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.8 + 0.2)) * uiData.triggerFeedbackR) or 0.0
+            xbox.triggerLeft  = (actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and vData.vehicle.absMode == 0) and ((actualBrakeNd < 0.9 and 0.15 or (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackL) or 0.0
+            xbox.triggerRight = (actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and vData.vehicle.tractionControlMode == 0) and ((actualThrottleNd < 0.9 and 0.15 or (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackR) or 0.0
         end
     end
 
@@ -326,14 +273,18 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     -- ================================ Values used by both the auto clutch and auto shifting
 
-    local normalizedRPM          = math.lerpInvSat(vData.vehicle.rpm, vData.idleRPM, vData.maxRPM) -- 0.0 is idle, 1.0 is max rpm
+    -- // TODO check if vData.cPhys.gearRatio is appropriate, it's the same as the engaged gear
+
+    local normalizedRPM          = vData.perfData:getNormalizedRPM() -- 0.0 is idle, 1.0 is max rpm
     local relevantSpeed          = lib.signClampValue(vData.localVel.z, lib.zeroGuard(vData.cPhys.gearRatio)) -- The local forward speed of the car if it matches the sign of the current gear ratio, otherwise 0
-    local RPMChangeRate          = RPMChangeRateSmoother:get(((vData.vehicle.rpm - prevRPM) / vData.RPMRange) / dt, dt) -- RPM / s
-    local smoothGAccel           = gAccelSmoother:get(vData.vehicle.acceleration.z, dt) -- Forward acceleration of the car, slightly filtered to avoid noise
-    local currentDrivetrainRatio = getDriveTrainRatioForGear(vData.vehicle.gear, vData)
-    local safeSpeedNorm          = lib.clamp01(relevantSpeed / getPredictedSpeedForRPM(getAbsoluteRPM(0.2, vData), vData, currentDrivetrainRatio))
-    local safeSpeedNormAbs       = lib.clamp01(vData.localHVelLen / getPredictedSpeedForRPM(getAbsoluteRPM(0.2, vData), vData, currentDrivetrainRatio))
-    local crawlSpeedNorm         = lib.clamp01(relevantSpeed / getPredictedSpeedForRPM(vData.idleRPM, vData, currentDrivetrainRatio)) -- Theoretical speed at idle
+    local RPMChangeRate          = RPMChangeRateSmoother:get(((vData.vehicle.rpm - prevRPM) / vData.perfData.RPMRange) / dt, dt) -- RPM / s
+    -- local smoothGAccel           = gAccelSmoother:get(vData.vehicle.acceleration.z, dt) -- Forward acceleration of the car, slightly filtered to avoid noise
+    local currentDrivetrainRatio = vData.perfData:getDrivetrainRatio()
+    local safePredictedSpeed     = getPredictedSpeedForRPM(vData.perfData:getAbsoluteRPM(0.2), vData, currentDrivetrainRatio)
+    local crawlPredictedSpeed    = getPredictedSpeedForRPM(vData.perfData.idleRPM, vData, currentDrivetrainRatio)
+    local safeSpeedNorm          = lib.clamp01(relevantSpeed / safePredictedSpeed)
+    local safeSpeedNormAbs       = lib.clamp01(vData.localHVelLen / safePredictedSpeed)
+    local crawlSpeedNorm         = lib.clamp01(relevantSpeed / crawlPredictedSpeed) -- Theoretical speed at idle
     prevRPM                      = vData.vehicle.rpm
 
     if safeSpeedNormAbs > 0.999 then
@@ -357,37 +308,37 @@ M.update = function(vData, uiData, absInitialSteering, dt)
                 errorShown2 = true
             end
         else
-
-            local minSpeedNorm = lib.clamp01(relevantSpeed / getPredictedSpeedForRPM(vData.idleRPM * 0.8, vData, currentDrivetrainRatio)) -- Only drops below 1.0 if the engine is about to stall
-            local notLaunching = vData.vehicle.brake >= 0.01 or vData.vehicle.handbrake >= 0.01 or vData.inputData.gas <= 0.01 or vData.vehicle.gear == 0 -- True if the launch has been aborted
+            local minSpeedReached   = lib.furtherFromZero(relevantSpeed, getPredictedSpeedForRPM(vData.perfData.idleRPM * 0.8, vData, currentDrivetrainRatio) or vData.vehicle.gear == 0) -- Only false if going so slow that the engine would stall
+            local notLaunching      = vData.vehicle.brake >= 0.01 or vData.vehicle.handbrake >= 0.01 or vData.inputData.gas <= 0.01 or vData.vehicle.gear == 0 -- True if the launch has been aborted
+            local signedSpeed       = vData.localVel.z * math.sign(lib.zeroGuard(vData.vehicle.gear))
+            local reverseProtection = (signedSpeed < -0.5 and vData.inputData.gas < 0.01 and vData.vehicle.gear ~= 0)
 
             if normalizedRPM > 0.1 and vData.inputData.gas > 0.01 and vData.inputData.brake < 0.01 and vData.inputData.handbrake < 0.01 then
                 autoClutchRaw = true
             end
 
-            if normalizedRPM < 0.05 and minSpeedNorm < 1.0 then
+            if (normalizedRPM < 0.05 and not minSpeedReached) or reverseProtection then
                 autoClutchRaw = false
             end
 
             if vData.vehicle.tractionControlInAction then clutchFreeze = true end -- // FIXME this doesn't really work
 
             if (crawlSpeedNorm > 0.9999) then clutchEngagedBiasRaw = true end
-            local currentEngagedBias = clutchEngagedBias:getWithRateMult(clutchEngagedBiasRaw and 1.0 or 0.0, dt, (vData.vehicle.gas ^ 1.5) * 0.8 + 0.2) ^ 2.0
+            local currentEngagedBias = clutchEngagedBias:getWithRateMult(clutchEngagedBiasRaw and 1.0 or 0.0, dt, (vData.vehicle.gas ^ 1.5) * 0.8 + 0.2) ^ 2.0 -- This will pull the clutch towards 1.0 when a safe speed has been reached
 
-            local clutchStateOverride = (minSpeedNorm < 1.0) and 0.0 or 1.0
+            local clutchStateOverride = (not minSpeedReached) and 0.0 or 1.0 -- In case the launch is aborted or something, this will be the new value of the clutch
 
             if autoClutchRaw then
                 rawClutchEngagedTime = rawClutchEngagedTime + dt
 
-                local RPMTarget = math.lerp(0.7, 0.2, safeSpeedNorm) * math.sqrt(vData.vehicle.gas)
+                local RPMTarget = math.lerp(0.7, 0.2, safeSpeedNorm) * math.sqrt(vData.vehicle.gas) -- Normalized RPM targeted by the clutch controller during a launch
 
                 clutchController:setSetpoint(RPMTarget)
                 local newTarget = clutchTarget
                 if not clutchFreeze and not notLaunching then newTarget = clutchController:get(math.lerp(normalizedRPM, RPMTarget, currentEngagedBias), dt) end
 
-                newTarget = lib.clamp01(newTarget - (1.0 - M.kbThrottleTarget)) -- // FIXME not the best workaround
+                newTarget = lib.clamp01(newTarget - (M.rawThrottle - vData.vehicle.gas)) -- // FIXME not the best workaround
                 clutchTarget = notLaunching and clutchStateOverride or newTarget
-                -- ac.debug("_ENGAGED_BIAS", currentEngagedBias, 0.0, 1.0)
                 clutchTarget = math.lerp(clutchTarget, 1.0, currentEngagedBias)
             else
                 rawClutchEngagedTime = 0
@@ -398,8 +349,12 @@ M.update = function(vData, uiData, absInitialSteering, dt)
                 if not vData.vehicle.tractionControlInAction then clutchFreeze = false end
             end
 
-            local autoClutchRate = (clutchTarget < autoClutchSmoother.state) and math.clamp((((vData.idleRPM * 0.8) / vData.vehicle.rpm - 1.0) * 40.0 + 1.0) * 0.5, 0.5, 20.0) or 100.0
+            local autoClutchRate = (clutchTarget < autoClutchSmoother.state) and math.clamp((((vData.perfData.idleRPM * 0.8) / vData.vehicle.rpm - 1.0) * 40.0 + 1.0) * 0.5, 0.5, 20.0) or 100.0
             local autoClutchVal  = autoClutchSmoother:getWithRateMult(clutchTarget, dt, autoClutchRate)
+
+            if not autoClutchRaw and reverseProtection then
+                autoClutchVal = 0.0
+            end
 
             if vData.vehicle.tractionType ~= 1 and vData.vehicle.handbrake > 0.01 then
                 vData.inputData.clutch = hbClutchSmoother:get(lib.clamp01(-2.0 * vData.vehicle.handbrake + 1.0), dt)
@@ -413,17 +368,17 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             end
 
             vData.inputData.clutch = math.min(vData.inputData.clutch, autoClutchVal)
-
         end
     end
 
     -- ================================ Auto shifting
 
     if vData.vehicle.gearCount < 2 or not uiData.autoShifting then
+        requestedGear = vData.vehicle.gear
         return
     end
 
-    if not vData.baseTorqueCurve then
+    if not vData.perfData.baseTorqueCurve then
         if not errorShown1 then
             ac.setMessage("Advanced Gamepad Assist", "Error reading engine data. Automatic shifting will be disabled.")
             errorShown1 = true
@@ -439,12 +394,16 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         return
     end
 
-    if #gearData == 0 then
-        calcShiftingTable(vData)
+    if vData.vehicle.mgukDeliveryCount > 0 then
+        if not errorShown4 then
+            ac.setMessage("Advanced Gamepad Assist", "Automatic shifting will have reduced accuracy with this car.")
+            errorShown4 = true
+        end
     end
 
-    -- local predictedRPM            = getPredictedRPM(relevantSpeed, vData)
-    -- local predictedRPMError       = math.clamp(lib.numberGuard(vData.vehicle.rpm / predictedRPM, 9999), -9999, 9999)
+    if #gearData == 0 then
+        gearData = vData.perfData:calcShiftingTable(0.1, maxAllowedUpshiftRPM)
+    end
 
     local referenceWheelsGrounded = (referenceWheelData[1].loadK > 0.0 or referenceWheelData[2].loadK > 0.0)
 
@@ -458,7 +417,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     local avoidDownshift = false -- Protects gears that were manually shifted up into
 
-    if not gearOverride and downshiftProtectedGear == vData.vehicle.gear then -- and not cruiseJustOff
+    if not gearOverride and downshiftProtectedGear == vData.vehicle.gear then
         if RPMChangeRate < 0.02 and safeSpeedElapsed > 0.5 and vData.inputData.clutch > 0.999 then
             RPMFallTime = RPMFallTime + dt
         else
@@ -470,7 +429,12 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         RPMFallTime = 0.0
     end
 
-    -- ac.debug("_safeSpeedElapsed", safeSpeedElapsed)
+    if cruiseFactor < 0.01 and prevCruiseFactor >= 0.01 then -- Allowing the car to shift freely when coming out of cruise mode
+        clearGearOverride()
+        avoidDownshift = false
+    end
+
+    prevCruiseFactor = cruiseFactor
 
     -- Avoiding gear changes for a small amount of time after ending a drift, in order to allow for direction changes maintaining the same gear
     local burnoutRaw = (wheelVelRatio1 >= 1.1 or wheelVelRatio2 >= 1.1) and vData.inputData.gas > 0.5 and vData.vehicle.gear > 0
@@ -487,25 +451,25 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
         local canShiftUp = false
         if vData.vehicle.gear > 0 and vData.vehicle.gear < vData.vehicle.gearCount then
-            canShiftUp = tSinceDownshift > 0.6 and tSinceUpshift > (vData.shiftUpTime + autoShiftCheckDelay) and (wheelVelRatio1 < 1.1 and wheelVelRatio2 < 1.1 and wheelVelRatio1 > 0.9 and wheelVelRatio2 > 0.9) and referenceWheelsGrounded and vData.vehicle.clutch > 0.999 and not driftingProbably
+            canShiftUp = tSinceDownshift > 0.6 and tSinceUpshift > (vData.perfData.shiftUpTime + autoShiftCheckDelay) and (wheelVelRatio1 < 1.1 and wheelVelRatio2 < 1.1 and wheelVelRatio1 > 0.9 and wheelVelRatio2 > 0.9) and referenceWheelsGrounded and vData.vehicle.clutch > 0.999 and (not driftingProbably or getPredictedRPM(vData.localHVelLen, vData, vData.perfData:getDrivetrainRatio(vData.vehicle.gear + 1)) > gearData[vData.vehicle.gear + 1].gearStartRPM)
         end
 
         local canShiftDown = false
         if vData.vehicle.gear > 1 then
-            canShiftDown = (tSinceUpshift > 0.6 or vData.inputData.brake > 0.2) and tSinceDownshift > (vData.shiftDownTime + autoShiftCheckDelay) and not avoidDownshift and referenceWheelsGrounded and not ((driftingProbably or burnoutRaw) and normalizedRPM > 0.5) and (vData.vehicle.clutch > 0.999 or safeSpeedElapsed > 1.0 or tSinceHighGearBurnoutStopped < ((vData.vehicle.gearCount - 1) * (vData.shiftDownTime + autoShiftCheckDelay + 0.05)))
+            canShiftDown = (tSinceUpshift > 0.6 or vData.inputData.brake > 0.2) and tSinceDownshift > (vData.perfData.shiftDownTime + autoShiftCheckDelay) and not avoidDownshift and referenceWheelsGrounded and not ((driftingProbably or burnoutRaw) and normalizedRPM > 0.5) and (vData.vehicle.clutch > 0.999 or safeSpeedElapsed > 1.0 or tSinceHighGearBurnoutStopped < ((vData.vehicle.gearCount - 1) * (vData.perfData.shiftDownTime + autoShiftCheckDelay + 0.05)))
         end
 
         local downshiftBiasUsed = math.lerp(uiData.autoShiftingDownBias, uiData.autoShiftingDownBias * 0.7, vData.inputData.gas)
-        local absDownshiftLimit = getAbsoluteRPM(maxAllowedDownshiftRPM, vData)
-        local minAllowedRPM     = getAbsoluteRPM(0.01, vData)
+        local absDownshiftLimit = vData.perfData:getAbsoluteRPM(maxAllowedDownshiftRPM)
+        local minAllowedRPM     = vData.perfData:getAbsoluteRPM(0.01)
 
         if canShiftUp then
             -- Finding the best gear to upshift into
             local targetGear = requestedGear
             local extRPM = normalizedRPM + RPMChangeRate * dt -- extrapolated RPM to be safe
-            local absExtRPM = getAbsoluteRPM(extRPM, vData)
-            for g = clampGear(requestedGear + 1, vData), vData.vehicle.gearCount, 1 do
-                local refRPM = getRPMInGear(g - 1, vData, absExtRPM)
+            local absExtRPM = vData.perfData:getAbsoluteRPM(extRPM)
+            for g = math.max(2, clampGear(requestedGear + 1, vData)), vData.vehicle.gearCount, 1 do
+                local refRPM = vData.perfData:getRPMInGear(g - 1, absExtRPM)
                 if refRPM >= getUpshiftThresholdRPM(g, minAllowedRPM, cruiseFactor) then
                     targetGear = g
                 end
@@ -517,8 +481,9 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         if canShiftDown and prevRequestedGear == requestedGear then
             -- Finding the best gear to downshift into
             local targetGear = requestedGear
+            local absVelPredRPM = getPredictedRPM(vData.localHVelLen, vData)
             for g = clampGear(requestedGear - 1, vData), 1, -1 do
-                local refRPM = getRPMInGear(g, vData, getPredictedRPM(vData.localHVelLen, vData)) -- // FIXME maybe not good
+                local refRPM = vData.perfData:getRPMInGear(g, absVelPredRPM) -- // FIXME is predicted RPM good enough here?
                 if refRPM <= getDownshiftThresholdRPM(g, minAllowedRPM, absDownshiftLimit, downshiftBiasUsed, cruiseFactor) then
                     targetGear = g
                 end
@@ -528,49 +493,31 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         end
     end
 
-    -- Need this weird check for semi-automatic cars like the Ferrari 458, but a little weirdness still remains
-    -- if not canUseClutch and vData.inputData.gas > 0.0 and requestedGear < prevRequestedGear and requestedGear > -1 then
-    --     requestedGear = prevRequestedGear
-    -- end
+    -- Requesting the desired gear
+    requestGear(vData, dt)
 
-    requestGear(vData, dt) -- was below
-
-    if (tSinceUpshift < vData.shiftUpTime or tSinceDownshift < vData.shiftDownTime) and vData.inputData.clutch > 0.999 then
+    if (tSinceUpshift < vData.perfData.shiftUpTime or tSinceDownshift < vData.perfData.shiftDownTime) and vData.inputData.clutch > 0.999 then
         vData.inputData.clutch = 0.0
         -- if carNeedsBlip then
-        local targetNormalizedRPM = math.clamp(getNormalizedRPM(getPredictedRPM(relevantSpeed, vData, getDriveTrainRatioForGear(requestedGear, vData)), vData) * ((tSinceUpshift < vData.shiftUpTime) and 1.0 or 0.8), 0.0, 0.95)
+        local downshiftAdjustment = math.lerp(0.76, 0.91, (requestedGear - 1) / (vData.vehicle.gearCount - 1)) * 1.0 -- Lower gears usually don't need as much throttle blip
+        local targetNormalizedRPM = math.clamp(vData.perfData:getNormalizedRPM(getPredictedRPM(relevantSpeed, vData, vData.perfData:getDrivetrainRatio(requestedGear))) * ((tSinceUpshift < vData.perfData.shiftUpTime) and 1.0 or downshiftAdjustment), 0.0, 0.95)
         revMatchController:setSetpoint(targetNormalizedRPM)
         vData.inputData.gas = revMatchController:get(normalizedRPM, dt)
         -- end
     else
         revMatchController:reset()
     end
-
-
-    -- ac.debug("_REQ_GEAR", requestedGear, -1, vData.vehicle.gearCount)
-
-    -- ac.debug("_CLUTCH", vData.inputData.clutch, 0.0, 1.0)
-    -- ac.debug("_LIMITER", vData.vehicle.isEngineLimiterOn)
-    -- ac.debug("_GEAR_DATA", gearData)
-    -- ac.debug("_NORMALIZED_RPM", normalizedRPM, 0.0, 1.0)
-
-    -- ac.debug("_W_RATIO1", wheelVelRatio1, 0.0, 2.0)
-    -- ac.debug("_W_RATIO2", wheelVelRatio2, 0.0, 2.0)
-
-    -- ac.debug("_GAS", vData.inputData.gas, 0.0, 1.0)
-    -- ac.debug("_CRUISE_FACTOR", cruiseFactor, 0.0, 1.0)
-
-    -- ac.debug("_GEAR", vData.vehicle.gear, -1, vData.vehicle.gearCount)
 end
 
 ac.onSharedEvent("AGA_factoryReset", function()
     errorShown1 = false
     errorShown2 = false
     errorShown3 = false
+    errorShown4 = false
 end)
 
 ac.onCarJumped(car.index, function (carID)
-    requestedGear = car.gear
+    requestedGear = 0
     -- errorShown2 = false
     errorShown3 = false -- Show this one more often
 end)

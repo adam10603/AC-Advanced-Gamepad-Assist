@@ -152,6 +152,11 @@ function M.numberGuard(v, alt)
     return (math.isNaN(v) or not v) and alt or v
 end
 
+-- Returns `true` if `A` is further from 0 than `B`
+function M.furtherFromZero(A, B)
+    return math.abs(A) > math.abs(B)
+end
+
 -- Calculates the velocity of a point in an object's local space. `localVel` and `outVec` are optional.
 function M.getPointVelocity(localPointPos, localAngularVel, localVel, outVec)
     outVec = outVec or vec3()
@@ -256,7 +261,7 @@ function M.ValueLimitsBuffer:count()
     return #self.elements
 end
 
--- PID controller class
+-- PID controller class with a clamped output and anti-windup
 
 M.PIDController = {}
 
