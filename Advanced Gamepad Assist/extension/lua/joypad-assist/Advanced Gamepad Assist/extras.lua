@@ -35,6 +35,7 @@ local revMatchController     = lib.PIDController:new(1.0, 100.0, 0.0, false, 0.0
 
 local tSinceUpshift          = 0.0
 local tSinceDownshift        = 0.0
+local tSinceDownshiftOver    = 999
 local requestedGear          = 0 -- The target gear that the script will attempt to shift into
 
 local gearOverride           = nil -- Automatic shifting will not happen while this object exists
@@ -48,6 +49,9 @@ local tSinceHighGearBurnoutStopped = 9999 -- Workaround for a very specific issu
 local clutchSampleTimer      = 0.0
 local canUseClutch           = true
 local clutchSampled          = false
+
+local tSinceABS              = 999
+local tSinceTCS              = 999
 
 local gearData = {} -- Contains gear change RPMs for each gear except last
 
@@ -257,15 +261,23 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 3.0)
 
         if xbox ~= nil then
-            -- xbox.triggerLeft  = (M.brakeNdUsed    > 0.8 and vData.inputData.brake > 0.3) and (math.lerpInvSat(M.brakeNdUsed,    0.8, 1.3) * uiData.triggerFeedbackL) or 0.0 -- With + 0.1
-            -- xbox.triggerRight = (M.throttleNdUsed > 0.9 and vData.inputData.gas   > 0.3) and (math.lerpInvSat(M.throttleNdUsed, 0.9, 1.4) * uiData.triggerFeedbackR) or 0.0
-
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
             local actualBrakeNd = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1) and 0.0 or M.brakeNdUsed
             local actualThrottleNd = (actualBrakeNd == 0) and M.brakeNdUsed or 0.0
 
-            xbox.triggerLeft  = (actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and vData.vehicle.absMode == 0) and ((actualBrakeNd < 0.9 and 0.15 or (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackL) or 0.0
-            xbox.triggerRight = (actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and vData.vehicle.tractionControlMode == 0) and ((actualThrottleNd < 0.9 and 0.15 or (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackR) or 0.0
+            local lVibration = 0.0
+            local rVibration = 0.0
+
+            if actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and (vData.vehicle.absMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+                lVibration = (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackL
+            end
+
+            if actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and (vData.vehicle.tractionControlMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+                rVibration = (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackR
+            end
+
+            xbox.triggerLeft  = lVibration
+            xbox.triggerRight = rVibration
         end
     end
 
@@ -497,15 +509,18 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     requestGear(vData, dt)
 
     if (tSinceUpshift < vData.perfData.shiftUpTime or tSinceDownshift < vData.perfData.shiftDownTime) and vData.inputData.clutch > 0.999 then
+        if tSinceDownshift < tSinceUpshift then tSinceDownshiftOver = 0.0 else tSinceDownshiftOver = 999.0 end
         vData.inputData.clutch = 0.0
         -- if carNeedsBlip then
-        local downshiftAdjustment = math.lerp(0.76, 0.91, (requestedGear - 1) / (vData.vehicle.gearCount - 1)) * 1.0 -- Lower gears usually don't need as much throttle blip
+        local downshiftAdjustment = math.lerp(0.77, 0.92, (requestedGear - 1) / (vData.vehicle.gearCount - 1)) * 1.0 -- Lower gears usually don't need as much throttle blip
         local targetNormalizedRPM = math.clamp(vData.perfData:getNormalizedRPM(getPredictedRPM(relevantSpeed, vData, vData.perfData:getDrivetrainRatio(requestedGear))) * ((tSinceUpshift < vData.perfData.shiftUpTime) and 1.0 or downshiftAdjustment), 0.0, 0.95)
         revMatchController:setSetpoint(targetNormalizedRPM)
         vData.inputData.gas = revMatchController:get(normalizedRPM, dt)
         -- end
     else
+        tSinceDownshiftOver = tSinceDownshiftOver + dt
         revMatchController:reset()
+        vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, lib.clamp01(tSinceDownshiftOver / 0.045)) -- A very short fade-in period of 45ms when engaging the clutch after a downshift
     end
 end
 

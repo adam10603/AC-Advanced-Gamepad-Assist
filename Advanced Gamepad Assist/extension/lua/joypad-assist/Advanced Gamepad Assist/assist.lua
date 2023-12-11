@@ -24,6 +24,7 @@ local uiData = ac.connect{
     autoShiftingDownBias     = ac.StructItem.double(),
     triggerFeedbackL         = ac.StructItem.double(),
     triggerFeedbackR         = ac.StructItem.double(),
+    triggerFeedbackAlwaysOn  = ac.StructItem.boolean(),
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
@@ -46,6 +47,7 @@ local savedCfg = ac.storage({
     autoShiftingDownBias     = 0.7,
     triggerFeedbackL         = 0.0,
     triggerFeedbackR         = 0.0,
+    triggerFeedbackAlwaysOn  = false,
     useFilter                = true,
     filterSetting            = 0.5,
     steeringRate             = 0.5,
@@ -69,6 +71,7 @@ uiData.autoShiftingCruise       = savedCfg.autoShiftingCruise
 uiData.autoShiftingDownBias     = savedCfg.autoShiftingDownBias
 uiData.triggerFeedbackL         = savedCfg.triggerFeedbackL
 uiData.triggerFeedbackR         = savedCfg.triggerFeedbackR
+uiData.triggerFeedbackAlwaysOn  = savedCfg.triggerFeedbackAlwaysOn
 uiData.filterSetting            = savedCfg.filterSetting
 uiData.steeringRate             = savedCfg.steeringRate
 uiData.rateIncreaseWithSpeed    = savedCfg.rateIncreaseWithSpeed
@@ -150,6 +153,7 @@ local function updateConfig(inputData)
     savedCfg.autoShiftingDownBias     = uiData.autoShiftingDownBias
     savedCfg.triggerFeedbackL         = uiData.triggerFeedbackL
     savedCfg.triggerFeedbackR         = uiData.triggerFeedbackR
+    savedCfg.triggerFeedbackAlwaysOn  = uiData.triggerFeedbackAlwaysOn
     savedCfg.filterSetting            = uiData.filterSetting
     savedCfg.steeringRate             = uiData.steeringRate
     savedCfg.rateIncreaseWithSpeed    = uiData.rateIncreaseWithSpeed
@@ -196,7 +200,7 @@ end
 local function evaluateSteeringCurve(samples, steeringLock)
     local sampleCount      = 0
     local acc              = 0
-    local sampleWindowLow  = math.clamp( 4 / vehicleSteeringLock, 0.15, 0.4) -- These adjust the window of valid samples based on the car's steering lock, hopefully making the calibration more accurate for typical steering angles
+    local sampleWindowLow  = math.clamp( 4 / vehicleSteeringLock, 0.15, 0.35) -- These adjust the window of valid samples based on the car's steering lock, hopefully making the calibration more accurate for typical steering angles
     local sampleWindowHigh = math.clamp(12 / vehicleSteeringLock, 0.6, 0.85)
     for _, value in ipairs(samples) do
         if value[1] >= sampleWindowLow and value[1] <= sampleWindowHigh then
@@ -231,14 +235,16 @@ end
 -- Hijacks the throttle / brake / handbrake/ steering inputs to perform calibration. Returns `true` if the calibration is over or aborted, `false` if it's in progress.
 local function performCalibration(inputData, vehicle, inverseBodyTransform, dt)
     if vehicle.velocity:length() > 0.5 and calibrationStage == 0 then
-        calibrationPreDelay = calibrationPreDelay + dt
-        if calibrationPreDelay > 1.0 then
+        if not (vehicle.wheels[0].loadK == 0.0 or vehicle.wheels[1].loadK == 0.0) then
+            calibrationPreDelay = calibrationPreDelay + dt
+        end
+        if calibrationPreDelay > 1.5 then
             calibrationStage = 2
             return true
         else
             inputData.gas       = 0.0
             inputData.handbrake = 1.0
-            inputData.brake     = 0.0
+            inputData.brake     = 1.0
             inputData.clutch    = 0.0
             return false
         end
@@ -252,7 +258,7 @@ local function performCalibration(inputData, vehicle, inverseBodyTransform, dt)
 
         inputData.gas       = 0.0
         inputData.handbrake = 1.0
-        inputData.brake     = 0.0
+        inputData.brake     = 1.0
         inputData.clutch    = 0.0
         inputData.steer     = calibrationSmoother.state
 
@@ -520,7 +526,7 @@ local function processInitialInput(vData, kbMode, steeringRateMult, dt)
 
     extras.rawThrottle = lib.clamp01(vData.inputData.gas + kbThrottle)
 
-    -- // FIXME detect these in a better way
+    -- // TODO detect these in a better way
     local brakeNdUsed     = vData.totalNdSlip
     local slipSub         = math.lerp(0.3, 0.4, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
     local throttleNdUsed  = ((vData.vehicle.tractionType == 1) and vData.frontNdSlip or vData.rearNdSlip) - slipSub
