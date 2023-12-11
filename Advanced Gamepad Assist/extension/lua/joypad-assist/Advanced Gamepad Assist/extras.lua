@@ -49,6 +49,9 @@ local clutchSampleTimer      = 0.0
 local canUseClutch           = true
 local clutchSampled          = false
 
+local tSinceABS              = 999
+local tSinceTCS              = 999
+
 local gearData = {} -- Contains gear change RPMs for each gear except last
 
 local function sanitize01Input(value)
@@ -254,18 +257,39 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- ================================ Vibration
 
     if (uiData.triggerFeedbackL > 0.0 or uiData.triggerFeedbackR > 0.0) and vData.inputData.gamepadType == ac.GamepadType.XBox and vData.localHVelLen > 0.5 then
-        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 3.0)
+        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 2.0)
 
         if xbox ~= nil then
-            -- xbox.triggerLeft  = (M.brakeNdUsed    > 0.8 and vData.inputData.brake > 0.3) and (math.lerpInvSat(M.brakeNdUsed,    0.8, 1.3) * uiData.triggerFeedbackL) or 0.0 -- With + 0.1
-            -- xbox.triggerRight = (M.throttleNdUsed > 0.9 and vData.inputData.gas   > 0.3) and (math.lerpInvSat(M.throttleNdUsed, 0.9, 1.4) * uiData.triggerFeedbackR) or 0.0
-
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
             local actualBrakeNd = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1) and 0.0 or M.brakeNdUsed
             local actualThrottleNd = (actualBrakeNd == 0) and M.brakeNdUsed or 0.0
 
-            xbox.triggerLeft  = (actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and vData.vehicle.absMode == 0) and ((actualBrakeNd < 0.9 and 0.15 or (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackL) or 0.0
-            xbox.triggerRight = (actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and vData.vehicle.tractionControlMode == 0) and ((actualThrottleNd < 0.9 and 0.15 or (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15)) * uiData.triggerFeedbackR) or 0.0
+            local lVibration = 0.0
+            local rVibration = 0.0
+
+            -- if uiData.triggerFeedbackAlwaysOn then
+            --     if not vData.vehicle.absInAction             then tSinceABS = tSinceABS + dt else tSinceABS = 0.0 end
+            --     if not vData.vehicle.tractionControlInAction then tSinceTCS = tSinceTCS + dt else tSinceTCS = 0.0 end
+
+            --     if tSinceABS < 0.025 then
+            --         lVibration = uiData.triggerFeedbackL
+            --     end
+
+            --     if tSinceTCS < 0.025 then
+            --         rVibration = uiData.triggerFeedbackR
+            --     end
+            -- else
+            if actualBrakeNd > 0.65 and vData.inputData.brake > 0.2 and (vData.vehicle.absMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+                lVibration = (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackL
+            end
+
+            if actualThrottleNd > 0.7 and vData.inputData.gas > 0.2 and (vData.vehicle.tractionControlMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+                rVibration = (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackR
+            end
+            -- end
+
+            xbox.triggerLeft  = lVibration
+            xbox.triggerRight = rVibration
         end
     end
 

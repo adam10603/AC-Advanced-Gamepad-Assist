@@ -18,6 +18,7 @@ local uiData = ac.connect{
     autoShiftingDownBias     = ac.StructItem.double(),
     triggerFeedbackL         = ac.StructItem.double(),
     triggerFeedbackR         = ac.StructItem.double(),
+    triggerFeedbackAlwaysOn  = ac.StructItem.boolean(),
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
@@ -42,7 +43,7 @@ local presetKeys = {
     "maxDynamicLimitReduction",
 }
 
-local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"steeringRate":0.3},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"countersteerResponse":0.5,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.36,"useFilter":false,"countersteerResponse":0.2,"maxDynamicLimitReduction":5.0,"dampingStrength":0.36,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5}}'
+local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"steeringRate":0.3},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"countersteerResponse":0.5,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.4,"useFilter":false,"countersteerResponse":0.2,"maxDynamicLimitReduction":5.0,"dampingStrength":0.4,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5}}'
 
 local savedPresets = ac.storage({presets = _factoryPresetsStr}, "AGA_PRESETS_")
 
@@ -60,8 +61,9 @@ local tooltips = {
     autoShifting             = "Automatically shifts gears using a more intelligent algorithm than the default one.\nOnly works if 'Automatic shifting' is DISABLED in the game's assist settings!",
     autoShiftingCruise       = "Allows the automatic shifting to go between cruise mode and performance mode depending on your throttle input.\nUseful if you want to do both performance driving and casual cruising, but you can disable it for racing (especially for rolling starts).",
     autoShiftingDownBias     = "Higher = more aggressive downshifting.\nFor example at 90% the car will downshift almost right away when you brake for a turn, however, this might leave you very close to the top of a gear when going back on the throttle again.",
-    triggerFeedbackL         = "Vibration feedback on the left trigger when braking with no ABS.\nOnly works with compatible Xbox controllers!",
-    triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating with no TCS.\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackL         = "Vibration feedback on the left trigger when braking.\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating.\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackAlwaysOn  = "Allows trigger vibrations even when TCS or ABS are enabled.",
     keyboardMode             = "Enables gas, brake and steering input on keyboard.\nYou can also choose to have brake or gas assistance when ABS or TCS are off. These aren't as good as ABS or TCS, they just try to compensate for not having analog input.\nFor every vehicle control to work (like shifting or handbrake), you also have to enable the 'Combine with keyboard' option in the control settings in Content Manager!",
     filterSetting            = "How much steering assistance you want in general.\nNote that 0% does not mean the assist is off, it's just a lower level of assistance.",
     steeringRate             = "How fast the steering is in general.",
@@ -422,15 +424,17 @@ local function factoryReset()
     presets = _json.decode(_factoryPresetsStr)
     savedPresets.presets = _factoryPresetsStr
 
-    uiData.assistEnabled        = true
-    uiData.autoClutch           = false
-    uiData.autoShifting         = false
-    uiData.autoShiftingCruise   = true
-    uiData.autoShiftingDownBias = 0.7
-    uiData.triggerFeedbackL     = 0.0
-    uiData.triggerFeedbackR     = 0.0
-    uiData.graphSelection       = 1
-    uiData.keyboardMode         = 0
+    -- // TODO use the event instead of setting these by hand here
+    uiData.assistEnabled           = true
+    uiData.autoClutch              = false
+    uiData.autoShifting            = false
+    uiData.autoShiftingCruise      = true
+    uiData.autoShiftingDownBias    = 0.7
+    uiData.triggerFeedbackL        = 0.0
+    uiData.triggerFeedbackR        = 0.0
+    uiData.triggerFeedbackAlwaysOn = false
+    uiData.graphSelection          = 1
+    uiData.keyboardMode            = 0
 
     loadPreset("Default")
 
@@ -626,6 +630,7 @@ function script.windowSettings(dt)
 
     showConfigSlider("triggerFeedbackL", "Left trigger feedback", "%.f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
     showConfigSlider("triggerFeedbackR", "Right trigger feedback", "%.f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+    showCheckbox("triggerFeedbackAlwaysOn", "Trigger feedback with ABS/TCS", false, false, 0)
 
     showDummyLine(0.25)
 
