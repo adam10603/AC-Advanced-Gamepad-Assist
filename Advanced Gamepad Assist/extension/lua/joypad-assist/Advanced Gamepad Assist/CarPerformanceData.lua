@@ -256,12 +256,12 @@ function M:getInitialTargetSlipEstimate(vData)
 
     local targetSlip = lib.weightedAverage({frictionLimitAngle + camberAdditive0 + loadAdditive0, frictionLimitAngle + camberAdditive1 + loadAdditive1}, vData.fWheelWeights)
 
-    return targetSlip
+    return math.clamp(lib.numberGuard(targetSlip), 6, 12) -- Clamp the target to a safe range
 end
 
 function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
     local learningConditionsMet =
-        (vData.frontNdSlip > 0.6 and vData.frontNdSlip < 1.5 and
+        (vData.frontNdSlip > 0.25 and vData.frontNdSlip < 1.5 and
         vData.fwdVelClamped > 8.0 and
         vData.rearNdSlip > 0.1 and vData.rearNdSlip < 1.2
         and self.vehicle.wheels[0].surfaceType == ac.SurfaceType.Default and self.vehicle.wheels[1].surfaceType == ac.SurfaceType.Default and
