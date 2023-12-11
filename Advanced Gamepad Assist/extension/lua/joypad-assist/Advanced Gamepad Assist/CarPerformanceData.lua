@@ -287,7 +287,7 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
 end
 
 function M:getTargetFrontSlipAngle()
-    return self.targetSlipSmoother.state
+    return self.targetSlipSmoother.state * 1.01
 end
 
 return M
