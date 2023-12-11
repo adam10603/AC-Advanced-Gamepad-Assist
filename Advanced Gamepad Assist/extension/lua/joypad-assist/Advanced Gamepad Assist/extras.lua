@@ -35,6 +35,7 @@ local revMatchController     = lib.PIDController:new(1.0, 100.0, 0.0, false, 0.0
 
 local tSinceUpshift          = 0.0
 local tSinceDownshift        = 0.0
+local tSinceDownshiftOver    = 999
 local requestedGear          = 0 -- The target gear that the script will attempt to shift into
 
 local gearOverride           = nil -- Automatic shifting will not happen while this object exists
@@ -508,15 +509,18 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     requestGear(vData, dt)
 
     if (tSinceUpshift < vData.perfData.shiftUpTime or tSinceDownshift < vData.perfData.shiftDownTime) and vData.inputData.clutch > 0.999 then
+        if tSinceDownshift < tSinceUpshift then tSinceDownshiftOver = 0.0 else tSinceDownshiftOver = 999.0 end
         vData.inputData.clutch = 0.0
         -- if carNeedsBlip then
-        local downshiftAdjustment = math.lerp(0.76, 0.91, (requestedGear - 1) / (vData.vehicle.gearCount - 1)) * 1.0 -- Lower gears usually don't need as much throttle blip
+        local downshiftAdjustment = math.lerp(0.77, 0.92, (requestedGear - 1) / (vData.vehicle.gearCount - 1)) * 1.0 -- Lower gears usually don't need as much throttle blip
         local targetNormalizedRPM = math.clamp(vData.perfData:getNormalizedRPM(getPredictedRPM(relevantSpeed, vData, vData.perfData:getDrivetrainRatio(requestedGear))) * ((tSinceUpshift < vData.perfData.shiftUpTime) and 1.0 or downshiftAdjustment), 0.0, 0.95)
         revMatchController:setSetpoint(targetNormalizedRPM)
         vData.inputData.gas = revMatchController:get(normalizedRPM, dt)
         -- end
     else
+        tSinceDownshiftOver = tSinceDownshiftOver + dt
         revMatchController:reset()
+        vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, lib.clamp01(tSinceDownshiftOver / 0.045)) -- A very short fade-in period of 45ms when engaging the clutch after a downshift
     end
 end
 
