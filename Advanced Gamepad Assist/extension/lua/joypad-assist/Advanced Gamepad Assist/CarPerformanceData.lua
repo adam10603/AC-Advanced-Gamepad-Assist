@@ -269,9 +269,13 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
         math.abs(initialSteering) > 0.6 and
         math.abs(self.vehicle.wheels[0].slipRatio) < 0.1 and math.abs(self.vehicle.wheels[1].slipRatio) < 0.1)
 
-    if self.targetSlipSmoother.state == 0.0 and self.tiresINI:get("HEADER", "VERSION", 0) == 10 then
-        self.fastLearningTime         = 999
-        self.targetSlipSmoother.state = self:getInitialTargetSlipEstimate(vData)
+    if self.targetSlipSmoother.state == 0.0 then
+        if self.tiresINI:get("HEADER", "VERSION", 0) == 10 then
+            self.fastLearningTime         = 999
+            self.targetSlipSmoother.state = self:getInitialTargetSlipEstimate(vData)
+        else
+            self.targetSlipSmoother.state = 7.0
+        end
     end
 
     if learningConditionsMet then
