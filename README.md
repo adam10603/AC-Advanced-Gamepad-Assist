@@ -33,6 +33,8 @@ This mod requires [***Content Manager***](https://assettocorsa.club/content-mana
 
 First, download the latest version from [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) or from [***RaceDepartment***](https://www.racedepartment.com/downloads/advanced-gamepad-assist.62485/).
 
+**DO NOT just drag the zip file into Content Manager** like usual, unfortunately that doesn't install all the files correctly.
+
 You can install the mod in two ways:
 
 #### If you have the lite (free) version of Content Manager:
