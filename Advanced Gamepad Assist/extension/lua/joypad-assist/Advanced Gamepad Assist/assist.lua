@@ -439,7 +439,7 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     local correctionBase      = lib.signedPow(math.clamp(-rAxleHVelAngle / 72.0, -1, 1), correctionExponent) * 72.0 / vData.steeringLockDeg -- Base self-steer force
     local selfSteerCap        = lib.clamp01(uiData.maxSelfSteerAngle / vData.steeringLockDeg) -- Max self-steer amount
     local selfSteerStrength   = math.sqrt(lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6))) * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
-    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.2125 * 0.5
+    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.2125 * 0.6
     local selfSteerCapT       = math.min(1.0, 4.0 / (2.0 * selfSteerCap)) -- Easing window
     local selfSteerForce      = math.clamp(selfSteerSmoother:get(lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce, dt), -2.0, 2.0) * selfSteerStrength
     uiData._selfSteerStrength = selfSteerStrength * (1.0 - absInitialSteering)
