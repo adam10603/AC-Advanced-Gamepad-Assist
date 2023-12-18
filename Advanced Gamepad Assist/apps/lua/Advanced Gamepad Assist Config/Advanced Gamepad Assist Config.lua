@@ -4,13 +4,13 @@ local _json = require "json"
 local uiData = ac.connect{
     ac.StructItem.key("AGAData"),
     _appCanRun               = ac.StructItem.boolean(),
-    _localHVelAngle          = ac.StructItem.double(),
+    _rAxleHVelAngle          = ac.StructItem.double(),
     _selfSteerStrength       = ac.StructItem.double(),
     _frontNdSlip             = ac.StructItem.double(),
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
-    graphSelection           = ac.StructItem.int32(),
+    graphSelection           = ac.StructItem.int32(), -- 1 = none, 2 = static, 3 = live
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     autoClutch               = ac.StructItem.boolean(),
     autoShifting             = ac.StructItem.boolean(),
@@ -22,6 +22,7 @@ local uiData = ac.connect{
     useFilter                = ac.StructItem.boolean(),
     filterSetting            = ac.StructItem.double(),
     steeringRate             = ac.StructItem.double(),
+    targetSlip               = ac.StructItem.double(),
     rateIncreaseWithSpeed    = ac.StructItem.double(),
     selfSteerResponse        = ac.StructItem.double(),
     dampingStrength          = ac.StructItem.double(),
@@ -36,6 +37,7 @@ local presetKeys = {
     "filterSetting",
     "steeringRate",
     "rateIncreaseWithSpeed",
+    "targetSlip",
     "selfSteerResponse",
     "dampingStrength",
     "maxSelfSteerAngle",
@@ -43,7 +45,7 @@ local presetKeys = {
     "maxDynamicLimitReduction",
 }
 
-local _factoryPresetsStr = '{"Stable":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.65,"useFilter":false,"countersteerResponse":0.1,"maxDynamicLimitReduction":6,"dampingStrength":0.75,"rateIncreaseWithSpeed":0.1,"steeringRate":0.3},"Drift":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.35,"useFilter":false,"countersteerResponse":0.5,"maxDynamicLimitReduction":4,"dampingStrength":0.5,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Default":{"maxSelfSteerAngle":14,"filterSetting":0.5,"selfSteerResponse":0.37,"useFilter":true,"countersteerResponse":0.2,"maxDynamicLimitReduction":5,"dampingStrength":0.37,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5},"Author\'s preference":{"maxSelfSteerAngle":90,"filterSetting":0.5,"selfSteerResponse":0.4,"useFilter":false,"countersteerResponse":0.2,"maxDynamicLimitReduction":5.0,"dampingStrength":0.4,"rateIncreaseWithSpeed":0.1,"steeringRate":0.4},"Loose":{"maxSelfSteerAngle":8,"filterSetting":0.5,"selfSteerResponse":0.3,"useFilter":false,"countersteerResponse":0.4,"maxDynamicLimitReduction":4.5,"dampingStrength":0.3,"rateIncreaseWithSpeed":0.1,"steeringRate":0.5}}'
+local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":8,"targetSlip":1,"countersteerResponse":0.4,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.94,"countersteerResponse":0.1,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":6,"steeringRate":0.3},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.4,"maxSelfSteerAngle":90,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
 
 local savedPresets = ac.storage({presets = _factoryPresetsStr}, "AGA_PRESETS_")
 
@@ -71,8 +73,9 @@ local tooltips = {
     selfSteerResponse        = "How aggressive the self-steer force will fight to keep the car straight.\nLow = looser feel and easier to oversteer, high = more assistance to prevent oversteer and keep the car stable.",
     dampingStrength          = "Counteracts the car's angular momentum which prevents the self-steer force from overcorrecting.\nHigher = more stability.\nHigher 'Response' and 'Max angle' settings require more damping to stop the car from wobbling.\nThe damping force is not limited by the 'Max angle' setting.",
     maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\nBasically this limits how big of a slide the self-steer can help to recover from.",
+    targetSlip               = "Changes the slip angle that the front wheels will target.\nHigher = more steering, lower = less steering.\nMost cars feel best around 90-95%, but you can set it higher if you want to force the car to go over the limit, or to generate more heat in the front tires.\nBeware that the slip angle achieved in reality might be slightly different from the intended amount on some cars.",
     countersteerResponse     = "High = more effective manual countersteering, but also easier to overcorrect a slide.",
-    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower."
+    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower.\nYou might want to use a higher setting for loose-handling cars."
 }
 
 local sectionPadding = 10
@@ -361,8 +364,8 @@ local function selfSteerCurveCallback(x)
 end
 
 local function drawSelfSteerCurve()
-    local liveAngle = (uiData.graphSelection == 3) and math.abs(uiData._localHVelAngle) or nil
-    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, uiData.assistEnabled and selfSteerCurveCallback or nil, uiData.assistEnabled and liveAngle or nil, 3)
+    local liveAngle = (uiData.graphSelection == 3) and math.abs(uiData._rAxleHVelAngle) or nil
+    showGraph("Self-steer force\n(damping force not included)", vec2(ui.windowPos().x + ui.windowWidth(), ui.windowPos().y), vec2(300, 300), "Rear axle travel angle (degrees)", "Self-steer (degrees)", 0.0, 60.0, 0.0, 60.0, 10.0, 10.0, uiData.assistEnabled and selfSteerCurveCallback or nil, uiData.assistEnabled and liveAngle or nil, 3)
 end
 
 local function drawLimitReductionBar()
@@ -574,6 +577,7 @@ function script.windowMain(dt)
 
     showConfigSlider("steeringRate",             "Steering rate",           "%.f%%",    0.0, 100.0, 100.0)
     showConfigSlider("rateIncreaseWithSpeed",    "Steering rate at speed",  "%+.f%%", -50.0,  50.0, 100.0, uiData.useFilter)
+    showConfigSlider("targetSlip",               "Target slip angle",       "%.1f%%",  90.0, 110.0, 100.0, uiData.useFilter)
     showConfigSlider("countersteerResponse",     "Countersteer response",   "%.f%%",    0.0, 100.0, 100.0, uiData.useFilter)
     showConfigSlider("maxDynamicLimitReduction", "Dynamic limit reduction", "%.1f°",    0.0,  10.0,   1.0, uiData.useFilter)
 

@@ -76,8 +76,8 @@ function M:new(vehicle)
     -- Reading drivetrain data
 
     local drivetrainINI  = ac.INIConfig.carData(vehicle.index, "drivetrain.ini")
-    local shiftUpTime    = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50) / 1000.0
-    local shiftDownTime  = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50) / 1000.0
+    local shiftUpTime    = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
+    local shiftDownTime  = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
     local defaultShiftUp = drivetrainINI:get("AUTO_SHIFTER", "UP", math.lerp(idleRPM, maxRPM, 0.7))
 
     local cPhys          = ac.getCarPhysics(vehicle.index)
@@ -100,6 +100,7 @@ function M:new(vehicle)
         finalDrive                      = cPhys.finalRatio,
         tiresINI                        = tiresINI,
         targetSlipSmoother              = lib.SmoothTowards:new(0.1, 0.05, 0.0, 15.0, 0.0),
+        loadAdditiveSmoother            = lib.SmoothTowards:new(1.5, 0.05, 0.0,  2.0, 0.0),
         fastLearningTime                = 0
     }, self)
 end
@@ -115,6 +116,10 @@ end
 
 -- Max theoretical torque at full throttle
 function M:getMaxTQ(rpm, gear)
+    if not self.baseTorqueCurve then
+        return 0
+    end
+
     local baseTorque = self.baseTorqueCurve:get(rpm)
 
     local totalBoost = 0.0 -- Total boost from all turbos
@@ -221,14 +226,28 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
     return gearData
 end
 
--- Not 100% accurate, only used as a starting point before learning takes over
+function M:getSlipLoadAdditive(vData)
+    local tireKey  = (self.vehicle.compoundIndex == 0) and "FRONT" or ("FRONT_" .. self.vehicle.compoundIndex)
+    local flexGain = self.tiresINI:get(tireKey, "FLEX_GAIN", 0.029)
+    local fz0      = self.tiresINI:get(tireKey, "FZ0", 3451)
+
+    local avgLoad = (self.vehicle.wheels[0].load + self.vehicle.wheels[1].load) * 0.5
+    local minLoad = avgLoad * 1.6 -- Assume some amount of load to get close to the cornering slip angle right away
+
+    local loadAdditive0 = math.sqrt(math.max(minLoad, self.vehicle.wheels[0].load) / (2.0 * fz0)) * (1.0 + 12.0 * flexGain) -- 6.0 * flexGain ?
+    local loadAdditive1 = math.sqrt(math.max(minLoad, self.vehicle.wheels[1].load) / (2.0 * fz0)) * (1.0 + 12.0 * flexGain) -- 6.0 * flexGain ?
+
+    return lib.numberGuard(lib.weightedAverage({loadAdditive0, loadAdditive1}, vData.fWheelWeights), 0)
+end
+
+-- Only used as a starting point before learning takes over, but it's only an estimate, could use improvement
 function M:getInitialTargetSlipEstimate(vData)
     local tireKey            = (self.vehicle.compoundIndex == 0) and "FRONT" or ("FRONT_" .. self.vehicle.compoundIndex)
     local frictionLimitAngle = self.tiresINI:get(tireKey, "FRICTION_LIMIT_ANGLE", 6.3)
     local camberGain         = self.tiresINI:get(tireKey, "CAMBER_GAIN", 0.213)
     local pressureIdeal      = self.tiresINI:get(tireKey, "PRESSURE_IDEAL", 23)
     local pressureFlexGain   = self.tiresINI:get(tireKey, "PRESSURE_FLEX_GAIN", 0.3)
-    local pressureDGain      = self.tiresINI:get(tireKey, "PRESSURE_D_GAIN", 0.010)
+    local pressureDGain      = self.tiresINI:get(tireKey, "PRESSURE_D_GAIN", 0.0052)
     local flexGain           = self.tiresINI:get(tireKey, "FLEX_GAIN", 0.0290)
     local fz0                = self.tiresINI:get(tireKey, "FZ0", 3451)
 
@@ -249,14 +268,36 @@ function M:getInitialTargetSlipEstimate(vData)
     local loadMult = 1.0 / (2.0 * fz0) * (5.5 * (flexGain - 0.03))
 
     local avgLoad = (self.vehicle.wheels[0].load + self.vehicle.wheels[1].load) * 0.5
-    local minLoad = avgLoad * 1.5 -- Assume some amount of load to get closer to the cornering slip angle
+    local minLoad = avgLoad * 1.6 -- Assume some amount of load to get close to the cornering slip angle right away
 
     local loadAdditive0 = math.max(minLoad, self.vehicle.wheels[0].load) * loadMult + pressureFlexGain0
     local loadAdditive1 = math.max(minLoad, self.vehicle.wheels[1].load) * loadMult + pressureFlexGain1
 
     local targetSlip = lib.weightedAverage({frictionLimitAngle + camberAdditive0 + loadAdditive0, frictionLimitAngle + camberAdditive1 + loadAdditive1}, vData.fWheelWeights)
 
-    return math.clamp(lib.numberGuard(targetSlip), 6, 12) -- Clamp the target to a safe range
+    return math.clamp(lib.numberGuard(targetSlip), 6, 11) -- Clamp the target to a safe range
+
+
+    -- Different attempt, usually better but can mess up more at high tire pressures
+
+    -- local camberAdditive0 = camberGain * math.sin(math.rad(self.vehicle.wheels[0].camber))
+    -- local camberAdditive1 = camberGain * math.sin(math.rad(self.vehicle.wheels[1].camber))
+
+    -- local pressureDiff0 = (self.vehicle.wheels[0].tyrePressure - pressureIdeal)
+    -- local pressureDiff1 = (self.vehicle.wheels[1].tyrePressure - pressureIdeal)
+
+    -- -- local dGainPressureMult0 = ((self.vehicle.wheels[0].tyrePressure < pressureIdeal) and 1.5 or 1.0)
+    -- -- local dGainPressureMult1 = ((self.vehicle.wheels[1].tyrePressure < pressureIdeal) and 1.5 or 1.0)
+
+    -- local avgLoad = (self.vehicle.wheels[0].load + self.vehicle.wheels[1].load) * 0.5
+    -- local minLoad = avgLoad * 1.6 -- Assume some amount of load to get close to the cornering slip angle right away
+
+    -- local loadAdditive0 = math.sqrt(math.max(minLoad, self.vehicle.wheels[0].load) / (2.0 * fz0)) * (1.0 + 6.0 * flexGain) - (pressureDiff0 * pressureDGain * 2.0 * math.lerp(frictionLimitAngle / 6.3, 1.0, 0.6)) - (pressureDiff0 * (pressureFlexGain / 4.0) * math.lerp(frictionLimitAngle / 6.3, 1.0, 0.6)) - (0.012 * math.max(0.0, car.wheels[0].tyreCoreTemperature - car.wheels[0].tyreOptimumTemperature))
+    -- local loadAdditive1 = math.sqrt(math.max(minLoad, self.vehicle.wheels[1].load) / (2.0 * fz0)) * (1.0 + 6.0 * flexGain) - (pressureDiff1 * pressureDGain * 2.0 * math.lerp(frictionLimitAngle / 6.3, 1.0, 0.6)) - (pressureDiff1 * (pressureFlexGain / 4.0) * math.lerp(frictionLimitAngle / 6.3, 1.0, 0.6)) - (0.012 * math.max(0.0, car.wheels[1].tyreCoreTemperature - car.wheels[1].tyreOptimumTemperature))
+
+    -- local targetSlip = lib.weightedAverage({(frictionLimitAngle - 1.25) + camberAdditive0 + loadAdditive0, (frictionLimitAngle - 1.25) + camberAdditive1 + loadAdditive1}, vData.fWheelWeights)
+
+    -- return math.clamp(lib.numberGuard(targetSlip), 6, 11) -- Clamp the target to a safe range
 end
 
 function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
@@ -269,11 +310,20 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
         math.abs(initialSteering) > 0.6 and
         math.abs(self.vehicle.wheels[0].slipRatio) < 0.1 and math.abs(self.vehicle.wheels[1].slipRatio) < 0.1)
 
+    local v10Tires        = (self.tiresINI:get("HEADER", "VERSION", 0) == 10)
+    local rawLoadAdditive = 0.0
+
+    if v10Tires then
+        rawLoadAdditive = self:getSlipLoadAdditive(vData)
+        self.loadAdditiveSmoother:get(rawLoadAdditive, dt)
+    end
+
     if self.targetSlipSmoother.state == 0.0 then
-        if self.tiresINI:get("HEADER", "VERSION", 0) == 10 then
+        if v10Tires then
             self.fastLearningTime         = 999
-            self.targetSlipSmoother.state = self:getInitialTargetSlipEstimate(vData)
+            self.targetSlipSmoother.state = self:getInitialTargetSlipEstimate(vData) - rawLoadAdditive
         else
+            self.fastLearningTime         = 0.0
             self.targetSlipSmoother.state = 7.0
         end
     end
@@ -282,16 +332,20 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
         local rateMult = 1.0
         if self.fastLearningTime < 1.5 then
             self.fastLearningTime = self.fastLearningTime + dt
-            rateMult              = 5.0
+            rateMult              = 4.0
         end
 
-        local idealSlip = math.abs(vData.frontSlipDeg) / (1.08 * vData.frontNdSlip - 0.08)
-        self.targetSlipSmoother:getWithRateMult(math.clamp(idealSlip, 4, 14.0), dt, rateMult)
+        -- With v10 tires the estimated peak slip change due to vertical load is subtracted here, then added back when the peak slip is requested from `getTargetFrontSlipAngle()`
+        -- This means that `getTargetFrontSlipAngle()` will reflect load changes much quicker than the learning algorithm could adapt
+        -- This will leave the learning algorithm to only have to learn changes from tire pressure, temperature etc. since the load factor is separated
+
+        local idealSlip = math.abs(vData.frontSlipDeg) / vData.frontNdSlip - self.loadAdditiveSmoother.state
+        self.targetSlipSmoother:getWithRateMult(v10Tires and math.clamp(idealSlip, 0.5, 14.0) or math.clamp(idealSlip, 4.0, 14.0), dt, rateMult)
     end
 end
 
 function M:getTargetFrontSlipAngle()
-    return self.targetSlipSmoother.state * 1.01
+    return self.targetSlipSmoother.state + self.loadAdditiveSmoother.state
 end
 
 return M
