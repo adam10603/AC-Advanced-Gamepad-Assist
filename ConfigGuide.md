@@ -195,4 +195,6 @@ ___
 
 ### Factory reset
 
-Deletes ALL presets, restores factory presets, and resets every setting to its default value. You have to click it twice to confirm.
+Deletes ALL presets, restores factory presets, and resets every setting to its default value.
+
+You have to click it twice to confirm.
