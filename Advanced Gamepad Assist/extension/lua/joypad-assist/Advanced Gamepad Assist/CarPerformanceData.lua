@@ -310,7 +310,7 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
         math.abs(initialSteering) > 0.6 and
         math.abs(self.vehicle.wheels[0].slipRatio) < 0.1 and math.abs(self.vehicle.wheels[1].slipRatio) < 0.1)
 
-    local v10Tires        = (self.tiresINI:get("HEADER", "VERSION", 0) == 10)
+    local v10Tires        = (self.tiresINI:get("HEADER", "VERSION", 0) == 10 and self.tiresINI:get("FRONT", "FRICTION_LIMIT_ANGLE", 0) ~= 0)
     local rawLoadAdditive = 0.0
 
     if v10Tires then
