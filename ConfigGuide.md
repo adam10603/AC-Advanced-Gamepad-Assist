@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/QLg9hFs.png)
+![UI app](https://i.imgur.com/niz5gfB.png)
 
 # General
 
@@ -122,11 +122,13 @@ The damping force will counteract the car's rotational momentum. This will preve
 
 The stronger you make the [Response](#response) and [Max angle](#max-angle) settings, the more damping will be needed to keep the self-steer force in check. However, too much damping can cause the car to feel numb, so as a rule of thumb I'd recommend to keep it at a similar value to the [Response](#response) setting.
 
+Note that since v1.4 this setting makes less of a difference, but the GIF still shows the older behavior because it's easier to see the difference.
+
 # Extra settings
 
 Click the gear icon ⚙️ at the top of the UI app to access additional features.
 
-![UI app settings](https://i.imgur.com/P3UspAs.png)
+![UI app settings](https://i.imgur.com/peDHite.png)
 
 ### Graphs
 
