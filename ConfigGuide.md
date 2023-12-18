@@ -56,6 +56,14 @@ Adjusts how much slower or faster the steering will get as you speed up. Negativ
 
 ___
 
+### Target slip angle
+
+Changes what % of relative front slip the steering will target. Higher means more steering, lower means less steering. Most cars feel best around 90-95%, but you can set it higher if you want to force the car over the limit, or if you want more heat in the front tires.
+
+Keep in mind that not all cars will adhere to this perfectly, so it's best to verify things via the [Graphs](#graphs) setting.
+
+___
+
 ### Countersteer response
 
 Changes how effective it is to countersteer in a slide or drift. A higher setting will make countersteering feel more responsive by allowing you to countersteer more, however, it also makes it easier to overcorrect a slide and spin the other way.
