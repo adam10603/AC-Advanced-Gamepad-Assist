@@ -172,7 +172,7 @@ ___
 
 Automatically changes gears using a more advanced algorithm than the default one in AC. It's suited for casual cruising, performance driving, and drifting alike. It keeps the shift-up and shift-down buttons functional too, alongside the automatic shifting.
 
-To use this feature, you have to turn OFF the regular ***Automatic shifting*** option in the game's assist settings! There's no need for the built-in ***Autoblip*** option either, because the custom automatic shifting feature has its own throttle blip.
+To use this feature, you have to turn OFF the regular ***Automatic shifting*** option in the game's assist settings! There's no need for the built-in ***Autoblip*** option either, because the custom automatic shifting performs its own rev-matching and clutch operation during gear changes.
 
 The automatic shifting algorithm will read the car's power curve and calculate the optimal shifting points for each gear to achieve the best acceleration. Currently this doesn't account for the MGU-K (like in modern F1 cars), but this will be improved in the future.
 
@@ -185,11 +185,17 @@ ___
 
 ### Left / right trigger feedback
 
-This option utilizes the trigger vibrations in modern Xbox controllers. The sliders determine the strength of the vibration feedback on each trigger. A value of ***0%*** will turn off vibrations.
+This option utilizes the trigger vibrations in modern Xbox controllers. The sliders determine the strength of the vibration feedback on each trigger.
 
-Left trigger vibrations are sent when driving without ABS and experiencing a wheel lockup, and right trigger vibrations are sent when driving without TCS and experiencing wheelspin.
+Left trigger vibrations are sent when experiencing a wheel lockup, and right trigger vibrations are sent when experiencing wheelspin. By default the left and right triggers only vibrate if ABS and TCS are turned off respectively, but the [Trigger feedback with ABS/TCS](#trigger-feedback-with-abstcs) can change this.
 
 The vibration feedback has two steps: a light vibration when approaching the limit, and a stronger vibration when going over the limit.
+
+___
+
+### Trigger feedback with ABS/TCS
+
+This setting allows the Xbox trigger vibrations to work even when ABS or TCS are enabled. Without this option you'd only get vibrations in each trigger if the respective assist is turned off.
 
 ___
 
