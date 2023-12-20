@@ -2,7 +2,7 @@ local lib = require "AGALib"
 
 local M = {}
 
---- Only construct once per car, not every frame
+--- Only construct once per car or when the setup changes, not every frame
 ---@param vehicle ac.StateCar
 function M:new(vehicle)
     local brokenEngineINI = true
@@ -99,9 +99,12 @@ function M:new(vehicle)
         gearRatios                      = table.clone(cPhys.gearRatios, true),
         finalDrive                      = cPhys.finalRatio,
         tiresINI                        = tiresINI,
-        targetSlipSmoother              = lib.SmoothTowards:new(0.1, 0.05, 0.0, 15.0, 0.0),
-        loadAdditiveSmoother            = lib.SmoothTowards:new(1.5, 0.05, 0.0,  2.0, 0.0),
-        fastLearningTime                = 0
+        targetSlipSmoother              = lib.SmoothTowards:new(0.12, 0.05, 0.0, 15.0, 0.0),
+        loadAdditiveSmoother            = lib.SmoothTowards:new(1.4,  0.05, 0.0,  2.0, 0.0),
+        fastLearningTime                = 0,
+        lastCompound                    = -1,
+        frontFlexGain                   = 0,
+        frontFZ0                        = 0
     }, self)
 end
 
@@ -227,15 +230,20 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
 end
 
 function M:getSlipLoadAdditive(vData)
-    local tireKey  = (self.vehicle.compoundIndex == 0) and "FRONT" or ("FRONT_" .. self.vehicle.compoundIndex)
-    local flexGain = self.tiresINI:get(tireKey, "FLEX_GAIN", 0.029)
-    local fz0      = self.tiresINI:get(tireKey, "FZ0", 3451)
+    if self.lastCompound ~= self.vehicle.compoundIndex then
+        local tireKey      = (self.vehicle.compoundIndex == 0) and "FRONT" or ("FRONT_" .. self.vehicle.compoundIndex)
+        self.frontFlexGain = self.tiresINI:get(tireKey, "FLEX_GAIN", 0.029)
+        self.frontFZ0      = self.tiresINI:get(tireKey, "FZ0", 3451)
+        self.lastCompound  = self.vehicle.compoundIndex
+    end
 
     local avgLoad = (self.vehicle.wheels[0].load + self.vehicle.wheels[1].load) * 0.5
-    local minLoad = avgLoad * 1.6 -- Assume some amount of load to get close to the cornering slip angle right away
+    local minLoad = avgLoad * (math.sqrt(math.lerpInvSat(vData.localHVelLen, 0, 15.0)) * 0.6 + 1.0) -- Assume some amount of load to get close to the cornering slip angle right away
 
-    local loadAdditive0 = math.sqrt(math.max(minLoad, self.vehicle.wheels[0].load) / (2.0 * fz0)) * (1.0 + 12.0 * flexGain) -- 6.0 * flexGain ?
-    local loadAdditive1 = math.sqrt(math.max(minLoad, self.vehicle.wheels[1].load) / (2.0 * fz0)) * (1.0 + 12.0 * flexGain) -- 6.0 * flexGain ?
+    local flexGainMult  = 1.0 + 12.0 * self.frontFlexGain -- 6.0 * flexGain ?
+    local refLoad       = 2.0 * self.frontFZ0
+    local loadAdditive0 = math.sqrt(math.max(minLoad, self.vehicle.wheels[0].load) / refLoad) * flexGainMult
+    local loadAdditive1 = math.sqrt(math.max(minLoad, self.vehicle.wheels[1].load) / refLoad) * flexGainMult
 
     return lib.numberGuard(lib.weightedAverage({loadAdditive0, loadAdditive1}, vData.fWheelWeights), 0)
 end
@@ -301,19 +309,22 @@ function M:getInitialTargetSlipEstimate(vData)
 end
 
 function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
+    local oneFrontGrounded  = (vData.vehicle.wheels[0].loadK > 0.0 or vData.vehicle.wheels[1].loadK > 0.0)
+
     local learningConditionsMet =
         (vData.frontNdSlip > 0.25 and vData.frontNdSlip < 1.5 and
         vData.fwdVelClamped > 8.0 and
-        vData.rearNdSlip > 0.1 and vData.rearNdSlip < 1.2
-        and self.vehicle.wheels[0].surfaceType == ac.SurfaceType.Default and self.vehicle.wheels[1].surfaceType == ac.SurfaceType.Default and
-        vData.inputData.brake < 0.05 and
+        vData.rearNdSlip > 0.1 and vData.rearNdSlip < 1.5 and
+        self.vehicle.wheels[0].surfaceType == ac.SurfaceType.Default and self.vehicle.wheels[1].surfaceType == ac.SurfaceType.Default and
+        -- vData.inputData.brake < 0.05 and
         math.abs(initialSteering) > 0.6 and
-        math.abs(self.vehicle.wheels[0].slipRatio) < 0.1 and math.abs(self.vehicle.wheels[1].slipRatio) < 0.1)
+        math.abs(self.vehicle.wheels[0].slipRatio) < 0.1 and math.abs(self.vehicle.wheels[1].slipRatio) < 0.1 and
+        oneFrontGrounded)
 
     local v10Tires        = (self.tiresINI:get("HEADER", "VERSION", 0) == 10 and self.tiresINI:get("FRONT", "FRICTION_LIMIT_ANGLE", 0) ~= 0)
     local rawLoadAdditive = 0.0
 
-    if v10Tires then
+    if v10Tires and oneFrontGrounded then
         rawLoadAdditive = self:getSlipLoadAdditive(vData)
         self.loadAdditiveSmoother:get(rawLoadAdditive, dt)
     end
@@ -335,9 +346,9 @@ function M:updateTargetFrontSlipAngle(vData, initialSteering, dt)
             rateMult              = 4.0
         end
 
-        -- With v10 tires the estimated peak slip change due to vertical load is subtracted here, then added back when the peak slip is requested from `getTargetFrontSlipAngle()`
-        -- This means that `getTargetFrontSlipAngle()` will reflect load changes much quicker than the learning algorithm could adapt
-        -- This will leave the learning algorithm to only have to learn changes from tire pressure, temperature etc. since the load factor is separated
+        -- With v10 tires the estimated peak slip change due to vertical load is subtracted here, then added back when the peak slip is requested from `getTargetFrontSlipAngle()`.
+        -- This means that `getTargetFrontSlipAngle()` will reflect load changes much quicker than the learning algorithm could adapt.
+        -- This will leave the learning algorithm to only have to learn changes from tire pressure or temperature that occur slower, since the load factor is separated.
 
         local idealSlip = math.abs(vData.frontSlipDeg) / vData.frontNdSlip - self.loadAdditiveSmoother.state
         self.targetSlipSmoother:getWithRateMult(v10Tires and math.clamp(idealSlip, 0.5, 14.0) or math.clamp(idealSlip, 4.0, 14.0), dt, rateMult)

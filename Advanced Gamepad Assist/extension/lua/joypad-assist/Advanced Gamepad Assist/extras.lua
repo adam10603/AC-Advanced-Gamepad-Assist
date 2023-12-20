@@ -251,17 +251,18 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
         if xbox ~= nil then
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
-            local actualBrakeNd = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1) and 0.0 or M.brakeNdUsed
-            local actualThrottleNd = (actualBrakeNd == 0) and M.brakeNdUsed or 0.0
+            local wheelspin        = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1)
+            local actualBrakeNd    = wheelspin and 0.0 or M.brakeNdUsed
+            local actualThrottleNd = wheelspin and M.brakeNdUsed or 0.0
 
             local lVibration = 0.0
             local rVibration = 0.0
 
-            if actualBrakeNd > 0.65 and M.controllerBrake > 0.2 and (vData.vehicle.absMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+            if actualBrakeNd > 0.65 and M.controllerBrake > 0.2 and (vData.vehicle.absMode < 1 or uiData.triggerFeedbackAlwaysOn) then
                 lVibration = (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackL
             end
 
-            if actualThrottleNd > 0.7 and M.controllerThrottle > 0.2 and (vData.vehicle.tractionControlMode == 0 or uiData.triggerFeedbackAlwaysOn) then
+            if actualThrottleNd > 0.7 and M.controllerThrottle > 0.2 and (vData.vehicle.tractionControlMode < 1 or uiData.triggerFeedbackAlwaysOn) then
                 rVibration = (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.85 + 0.15) * uiData.triggerFeedbackR
             end
 
