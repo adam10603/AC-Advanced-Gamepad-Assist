@@ -91,12 +91,12 @@ local absSteeringSmoother      = lib.SmoothTowards:new( 7.0,  0.15, -1.0,  1.0, 
 local kbThrottleSmoother       = lib.SmoothTowards:new(12.0,  1.0,   0.0,  1.0,  0.0)
 local kbBrakeSmoother          = lib.SmoothTowards:new(12.0,  1.0,   0.0,  1.0,  0.0)
 local kbSteerSmoother          = lib.SmoothTowards:new( 7.0,  1.0,  -1.0,  1.0,  0.0)
-local selfSteerSmoother        = lib.SmoothTowards:new( 9.0,  0.15, -1.0,  1.0,  0.0) -- Smooths out the self-steer force
+local selfSteerSmoother        = lib.SmoothTowards:new( 8.0,  0.15, -1.0,  1.0,  0.0) -- Smooths out the self-steer force
 local limitSmoother            = lib.SmoothTowards:new(11.0,  0.01,  0.0, 32.0, 32.0) -- Smooths out changes in the steering limit -- tricky to get the rate right, too slow and it causes oscillations on turn-in, too fast and it lets noise through into the steering
-local groundedSmoother         = lib.SmoothTowards:new( 5.0,  1.0,   0.0,  1.0,  1.0) -- Smooths the value that indicates if any of the front wheels are grounded
+local groundedSmoother         = lib.SmoothTowards:new( 4.0,  1.0,   0.0,  1.0,  1.0) -- Smooths the value that indicates if any of the front wheels are grounded
 local frontSlipDisplaySmoother = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0,  0.0) -- Smooths the relative front slip value sent to the UI app for visualization
 local rearSlipDisplaySmoother  = lib.SmoothTowards:new(10.0,  0.05,  0.0,  1.0,  0.0) -- Smooths the relative rear slip value sent to the UI app for visualization
-local counterIndicatorSmoother = lib.SmoothTowards:new(16.0,  1.0,   0.0,  1.0,  0.0)      -- Smooths out the value that indicates if the player is countersteering
+local counterIndicatorSmoother = lib.SmoothTowards:new(12.0,  1.0,   0.0,  1.0,  0.0) -- Smooths out the value that indicates if the player is countersteering
 local vehicleSteeringLock      = math.NaN -- Degrees
 local slowLog                  = false
 
@@ -425,39 +425,42 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     local rAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.rAxleLocalVel.x, math.abs(vData.rAxleLocalVel.z)))) -- Angle of the rear axle velocity on the local horizontal plane, corrected for reverse (deg)
     local localVelHAngle       = lib.numberGuard(math.deg(math.atan2(vData.localVel.x, math.abs(vData.localVel.z)))) -- Angle of the car's velocity on the local horizontal plane, corrected for reverse (deg)
     local inputSign            = math.sign(initialSteering) -- Sign of the initial steering input by the player (after smoothing)
-    local angleSubLimit        = math.lerp(uiData.maxDynamicLimitReduction, uiData.maxDynamicLimitReduction * 0.8, vData.inputData.brake) -- How many degrees the steering limit is allowed to reduce when the car oversteers, in the process of trying to maintain peak front slip angle
-    local clampedFAxleVelAngle = lib.clampEased(inputSign * fAxleHVelAngle, -vData.steeringLockDeg - 15.0, angleSubLimit, 3.0 / (vData.steeringLockDeg + 15.0 + angleSubLimit)) -- Limiting how much the front velocity angle can affect the steering limit
-    
-    if vData.localHVelLen > 1e-15 then
-        uiData._rAxleHVelAngle = localVelHAngle
-        uiData._limitReduction = math.max(clampedFAxleVelAngle, 0.0)
-    end
+    local lowSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (30.0 / 3.6)) -- Used for fading some effects at low speed
+    local midSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (60.0 / 3.6)) -- Used for fading some effects at medium speed
 
     -- Self-steer force
 
     local correctionExponent  = 1.0 + (1.0 - math.log10(10.0 * (uiData.selfSteerResponse * 0.9 + 0.1))) -- This is just to make `cfg.selfSteerResponse` scale in a better way
     local correctionBase      = lib.signedPow(math.clamp(-rAxleHVelAngle / 72.0, -1, 1), correctionExponent) * 72.0 / vData.steeringLockDeg -- Base self-steer force
     local selfSteerCap        = lib.clamp01(uiData.maxSelfSteerAngle / vData.steeringLockDeg) -- Max self-steer amount
-    local selfSteerStrength   = math.sqrt(lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6))) * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
-    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.2125 * 0.6
+    local selfSteerStrength   = lowSpeedFade * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
+    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.1275 -- * 0.2125 * 0.6
     local selfSteerCapT       = math.min(1.0, 4.0 / (2.0 * selfSteerCap)) -- Easing window
     local selfSteerForce      = math.clamp(selfSteerSmoother:get(lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce, dt), -2.0, 2.0) * selfSteerStrength
     uiData._selfSteerStrength = selfSteerStrength * (1.0 - absInitialSteering)
 
     -- Steering limit
 
+    local finalTargetSlip      = targetFrontSlipDeg * uiData.targetSlip
+    local angleSubLimit        = math.min(targetFrontSlipDeg * 0.75, math.lerp(uiData.maxDynamicLimitReduction, uiData.maxDynamicLimitReduction * 0.8, vData.inputData.brake)) -- How many degrees the steering limit is allowed to reduce when the car oversteers, in the process of trying to maintain the desired front slip angle -- + math.max(0.0, -inputSign * selfSteerForce * vData.steeringLockDeg)
+    local clampedFAxleVelAngle = lib.clampEased(inputSign * fAxleHVelAngle, -vData.steeringLockDeg - 15.0, angleSubLimit, 3.0 / (vData.steeringLockDeg + 15.0 + angleSubLimit)) -- Limiting how much the front velocity angle can affect the steering limit
+    if vData.localHVelLen > 1e-15 then
+        uiData._rAxleHVelAngle = localVelHAngle
+        uiData._limitReduction = math.max(clampedFAxleVelAngle, 0.0)
+    end
+
     local isCountersteering   = (inputSign ~= math.sign(lib.zeroGuard(vData.rAxleLocalVel.x)) and math.abs(initialSteering) > 1e-6) -- Boolean to indicate if the player is countersteering
-    local counterIndicator    = counterIndicatorSmoother:get(isCountersteering and lib.inverseLerpClampedEased(4.5, 9.5, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0, dt) -- 0-1 multiplier to indicate if the player is countersteering
+    local rawCounterIndicator = isCountersteering and lib.inverseLerpClampedEased(4.5, 9.5, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0 -- Countersteer factor before smoothing
+    local counterIndicator    = counterIndicatorSmoother:getWithRateMult(rawCounterIndicator, dt, rawCounterIndicator < counterIndicatorSmoother.state and 0.5 or 1.0) * midSpeedFade -- Final 0-1 multiplier to indicate if the player is countersteering
 
-    local finalTargetSlip     = targetFrontSlipDeg * uiData.targetSlip -- Cars reach peak lateral G-force before the tires reach peak slip. Around 90% would be ideal, but 95 leaves some safety margin.
-    local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit             -- math.sign(-initialSteering) * selfSteerForce (when added to the limit)
+    local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit
     local targetInward        = finalTargetSlip - clampedFAxleVelAngle -- Steering limit when turning inward
-    local counterMult         = math.lerp(math.lerpInvSat(-inputSign * rAxleHVelAngle, 0.0, 30.0) * 0.333 + 0.666, 1.0, uiData.countersteerResponse) -- Makes manual countersteering a bit less sensitive near the center
-    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * counterMult * 0.85 + 0.15)) - (inputSign * rAxleHVelAngle) -- Steering limit when countersteering
+    local counterMult         = math.lerp(math.lerpInvSat(-inputSign * rAxleHVelAngle, 0.0, 30.0) * (1.0 / 3.0) + (2.0 / 3.0), 1.0, uiData.countersteerResponse) -- Makes manual countersteering a bit less sensitive near the center
+    local targetCounter       = (finalTargetSlip * (uiData.countersteerResponse * counterMult * 0.9 + 0.1)) - (inputSign * rAxleHVelAngle) -- Steering limit when countersteering
 
-    local targetSteeringAngle = math.clamp(math.lerp(targetInward, targetCounter, counterIndicator), -vData.steeringLockDeg, vData.steeringLockDeg) -- The steering angle that would result in the targeted slip angle
-    local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 0.75), -math.pi * 0.5, math.pi * 0.5)) ^ 6 -- Used to get rid of the steering limit when going backwards
-    local limit               = math.lerp(limitSmoother:get(targetSteeringAngle, dt) / vData.steeringLockDeg, 1.0, notForward) -- The final steering limit
+    local targetSteeringAngle = math.lerp(math.clamp(targetInward, 0, vData.steeringLockDeg), math.clamp(targetCounter, 0, vData.steeringLockDeg), counterIndicator) -- The steering angle that would result in the targeted slip angle
+    local notForward          = math.sin(math.clamp(math.rad(vData.travelDirection * 2.0 / 3.0), -math.pi * 0.5, math.pi * 0.5)) ^ 16 -- Gets rid of the steering limit when going backwards
+    local limit               = math.lerp(limitSmoother:get(targetSteeringAngle, dt) / vData.steeringLockDeg, 1.0, notForward) -- The final steering limit (absolute)
 
     return math.clamp((initialSteering * limit) + selfSteerForce + antiSelfSteer, -1.0, 1.0)
 end
@@ -493,10 +496,9 @@ ac.onSharedEvent("AGA_calibrateSteering", function()
     retryCalibration(true)
 end)
 
-local brakeTarget = 1.0
+local brakeTarget    = 1.0
 local throttleTarget = 1.0
-
-local prevBrakeNd = 0.0
+local prevBrakeNd    = 0.0
 local prevThrottleNd = 0.0
 
 -- Reads controller and keyboard input (if enabled), and performs the initial smoothing and processing
@@ -514,8 +516,10 @@ local function processInitialInput(vData, kbMode, steeringRateMult, extrasObj, d
 
     local rawSteer           = sanitizeSteeringInput(vData.inputData.steerStickX + kbSteer)
     local centeringRate      = 1.0 -- Faster centering rate when the steering rate is under 50%
-    if uiData.steeringRate > 0.0 then
-        if (math.abs(rawSteer) < math.abs(steeringSmoother.state) and math.sign(rawSteer) == math.sign(steeringSmoother.state)) or (math.sign(rawSteer) ~= math.sign(steeringSmoother.state)) then centeringRate = (uiData.steeringRate * 0.5 + 0.25) / uiData.steeringRate end
+    if steeringRateMult > 0.0 and steeringRateMult < 0.5 then
+        if (math.abs(rawSteer) < math.abs(steeringSmoother.state) and math.sign(rawSteer) == math.sign(steeringSmoother.state)) or (math.sign(rawSteer) ~= math.sign(steeringSmoother.state)) then
+            centeringRate = (steeringRateMult * 0.5 + 0.25) / steeringRateMult
+        end
     end
     local initialSteering    = steeringSmoother:getWithRateMult(rawSteer, dt, steeringRateMult * centeringRate) -- Steering input with no processing (except smoothing)
     local absInitialSteering = absSteeringSmoother:getWithRateMult(math.abs(rawSteer), dt, steeringRateMult * centeringRate) -- Absolute steering input with no processing (except smoothing)
