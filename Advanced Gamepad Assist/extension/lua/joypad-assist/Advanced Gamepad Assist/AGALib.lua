@@ -218,20 +218,24 @@ function M.ValueLimitsBuffer:new(length)
         length   = length or 2,
         elements = {},
         minVal   = nil,
-        maxVal   = nil,
+        maxval   = nil,
     }, self)
 end
 
 function M.ValueLimitsBuffer:add(element)
+    local recalc = true
+
     if self.minVal == nil or element < self.minVal then
+        recalc = false
         self.minVal = element
     elseif self.maxVal == nil or element > self.maxVal then
+        recalc = false
         self.maxVal = element
     end
 
     if #self.elements >= self.length then
         local removed = table.remove(self.elements, 1)
-        if removed == self.minVal or removed == self.maxVal then
+        if recalc and removed == self.minVal or removed == self.maxVal then
             self.minVal, self.maxVal = M.tableLimits(self.elements)
         end
     end

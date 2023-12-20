@@ -72,7 +72,7 @@ This doesn't apply to the self-steer tendency of the car, only to manual counter
 
 ___
 
-### Max dynamic limit reduction
+### Dynamic limit reduction
 
 Normally the assist will try to keep the front wheels at their ideal slip angle during a turn, but this also means that the steering would wind back quite a lot if the car starts to oversteer. This setting will limit how much the steering angle can reduce while you turn inward when the car is oversteering.
 
@@ -80,11 +80,9 @@ Normally the assist will try to keep the front wheels at their ideal slip angle 
 
 In the GIF above, the car starts to oversteer on corner entry, and you can see the difference in how much the steering is allowed compensate for this (despite the player fully turning inwards in both cases).
 
-Setting this lower makes it more likely to steer more than required, especially during a harsh corner entry. On the other hand, a higher setting will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel too restrictive, as the assist will be allowed to override your input more.
+Setting this lower makes it easier to steer more than required, especially during a harsh corner entry. On the other hand, a higher setting will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel too restrictive, as the assist will be allowed to override your input more.
 
-The actual reduction in steering angle won't always reach the value set here. The steering will always stop winding back near the center, even if you allow more reduction with this setting. This is to ensure that you always have the ability to turn slightly inward if you want to, even in a slide. You can see the actual value in real-time with [Graphs](#graphs) set to ***Live***.
-
-For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn. Around `5°` is enough for that in most cars. But if you want to be able to throw the car into a turn more aggressively (and don't mind some tire slippage), then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
+For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn (which you can see with [Graphs](#graphs) set to ***Live***). Around `5°` is enough for that in most cars. But if you want to be able to throw the car into a turn more aggressively (and don't mind some tire slippage), then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
 
 ___
 
