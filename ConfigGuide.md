@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/niz5gfB.png)
+![UI app](https://i.imgur.com/G41Kf7I.png)
 
 # General
 
