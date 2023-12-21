@@ -1,3 +1,10 @@
+if ac.getPatchVersionCode() < 2651 then
+    ac.onCarJumped(car.index, function ()
+        ac.setMessage("Advanced Gamepad Assist", "Error - Only CSP 0.2.0 and higher are supported!")
+    end)
+    return
+end
+
 if car.isAIControlled then return end
 
 local lib                = require "AGALib"
@@ -136,7 +143,7 @@ local steeringCurveSamples     = {}
 local steeringExponent         = 0.95
 
 -- Updates the config values based on the settings in the UI app
-local function updateConfig(inputData)
+local function updateConfig()
     if uiData.useFilter then
         uiData.rateIncreaseWithSpeed    = (1.0 - uiData.filterSetting) * 0.2
         uiData.selfSteerResponse        = uiData.filterSetting * 0.5 + 0.12
@@ -418,14 +425,14 @@ local function calcSteeringRateMult(fwdVelClamped, steeringLockDeg)
 end
 
 -- Returns the corrected sterering angle with the steering limit and self-steer force applied, normalized to the car's steering lock
-local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, steeringRateMult, dt)
+local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, dt)
     -- Calculating baseline data
 
     local fAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.fAxleLocalVel.x, math.abs(vData.fAxleLocalVel.z)))) -- Angle of the weighted average front wheel velocity on the local horizontal plane, corrected for reverse (deg)
     local rAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.rAxleLocalVel.x, math.abs(vData.rAxleLocalVel.z)))) -- Angle of the rear axle velocity on the local horizontal plane, corrected for reverse (deg)
     local localVelHAngle       = lib.numberGuard(math.deg(math.atan2(vData.localVel.x, math.abs(vData.localVel.z)))) -- Angle of the car's velocity on the local horizontal plane, corrected for reverse (deg)
     local inputSign            = math.sign(initialSteering) -- Sign of the initial steering input by the player (after smoothing)
-    local lowSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (30.0 / 3.6)) -- Used for fading some effects at low speed
+    local lowSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6)) -- Used for fading some effects at low speed
     local midSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (60.0 / 3.6)) -- Used for fading some effects at medium speed
 
     -- Self-steer force
@@ -582,16 +589,8 @@ end
 
 local logTimer = 0.0
 
-local compatibilityErrorShowed = false
-
 function script.update(dt)
     if car.isAIControlled or not car.physicsAvailable then return end
-
-    if not compatibilityErrorShowed and ac.getPatchVersionCode() < 2651 then
-        ac.setMessage("Advanced Gamepad Assist", "Error - Only CSP 0.2.0 and higher are supported!")
-        compatibilityErrorShowed = true
-        return
-    end
 
     uiData._appCanRun = true
 
@@ -609,7 +608,7 @@ function script.update(dt)
         calibrationTries = 0
     end
 
-    updateConfig(vData.inputData) -- Updates the config values based on the settings in the UI app
+    updateConfig() -- Updates the config values based on the settings in the UI app
 
     local desiredSteering = 0 -- The desired steering angle normalized to the car's steering lock
     local assistFadeIn    = 0 -- Controls how the steering processing is faded in and out at low speeds
@@ -621,7 +620,7 @@ function script.update(dt)
         vData.perfData:updateTargetFrontSlipAngle(vData, initialSteering, dt)
 
         assistFadeIn            = math.lerpInvSat(vData.fAxleHVelLen, 2.0, 6.0)
-        local processedSteering = calcCorrectedSteering(vData, vData.perfData:getTargetFrontSlipAngle(), initialSteering, absInitialSteering, steeringRateMult, dt)
+        local processedSteering = calcCorrectedSteering(vData, vData.perfData:getTargetFrontSlipAngle(), initialSteering, absInitialSteering, dt)
 
         desiredSteering         = math.lerp(initialSteering, processedSteering, assistFadeIn)
         vData.inputData.steer   = sanitizeSteeringInput(normalizedSteeringToInput(desiredSteering, vData.steeringCurveExponent)) -- Final steering input sent to the car

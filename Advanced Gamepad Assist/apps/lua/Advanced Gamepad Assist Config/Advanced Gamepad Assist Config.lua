@@ -541,8 +541,11 @@ end
 
 function script.windowMain(dt)
     if not uiData._appCanRun then
-
-        if not lib.clampEased then
+        if ac.getPatchVersionCode() < 2651 then
+            ui.pushStyleColor(ui.StyleColor.Text, rgbm(1.0, 0.0, 0.0, 1.0))
+            ui.textWrapped("Update CSP to 0.2.0 or newer!\nOlder versions are not supported anymore.")
+            ui.popStyleColor(1)
+        elseif not lib.clampEased then
             ui.textWrapped("Advanced Gamepad Assist is not installed!")
         else
             ui.textWrapped("Advanced Gamepad Assist is currently not enabled!")
