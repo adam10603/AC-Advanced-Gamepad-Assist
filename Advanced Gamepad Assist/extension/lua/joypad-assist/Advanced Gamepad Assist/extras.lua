@@ -271,7 +271,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         end
     end
 
-    if not uiData.autoClutch and not uiData.autoShifting then return end -- Quit here if none of these are enabled
+    if not uiData.autoClutch and uiData.autoShiftingMode == 0 then return end -- Quit here if none of these are enabled
 
     -- ================================ Values used by both the auto clutch and auto shifting
 
@@ -375,7 +375,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     -- ================================ Auto shifting
 
-    if vData.vehicle.gearCount < 2 or not uiData.autoShifting then
+    if vData.vehicle.gearCount < 2 or uiData.autoShiftingMode == 0 then
         requestedGear = vData.vehicle.gear
         return
     end
@@ -449,7 +449,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         tSinceHighGearBurnoutStopped = 0.0
     end
 
-    if not gearOverride then
+    if not gearOverride and uiData.autoShiftingMode == 2 then
 
         local canShiftUp = false
         if vData.vehicle.gear > 0 and vData.vehicle.gear < vData.vehicle.gearCount then

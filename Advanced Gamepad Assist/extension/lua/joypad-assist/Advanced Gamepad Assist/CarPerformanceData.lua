@@ -26,7 +26,7 @@ function M:new(vehicle)
         end
 
         idleRPM = engineINI:get("ENGINE_DATA", "MINIMUM", 900)
-        maxRPM  = math.min(engineINI:get("ENGINE_DATA", "LIMITER", 99999), engineINI:get("DAMAGE", "RPM_THRESHOLD", 99999))
+        maxRPM  = math.min(((vehicle.rpmLimiter and vehicle.rpmLimiter ~= 0) and vehicle.rpmLimiter or engineINI:get("ENGINE_DATA", "LIMITER", 99999)), engineINI:get("DAMAGE", "RPM_THRESHOLD", 99999))
 
         if maxRPM == 99999 then
             maxRPM = ((vehicle.rpmLimiter > 0) and vehicle.rpmLimiter or 7000)
@@ -195,7 +195,7 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
 
         if self.vehicle.mgukDeliveryCount == 0 then
             local bestArea = 0
-            local areaSkew = math.lerp(0.9, 1.4, (gear - 1) / (self.vehicle.gearCount - 2))
+            local areaSkew = math.lerp(1.0, 1.15, (gear - 1) / (self.vehicle.gearCount - 2)) -- 0.9, 1.4
             local nextOverCurrentRatio = self:getGearRatio(gear + 1) / self:getGearRatio(gear)
             for i = 0, 300, 1 do
                 local upshiftRPM = self:getAbsoluteRPM(i / 300.0)

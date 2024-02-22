@@ -23,10 +23,10 @@ local uiData = ac.connect{
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
-    graphSelection           = ac.StructItem.int32(),
+    graphSelection           = ac.StructItem.int32(), -- 1 = none, 2 = static, 3 = live
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     autoClutch               = ac.StructItem.boolean(),
-    autoShifting             = ac.StructItem.boolean(),
+    autoShiftingMode         = ac.StructItem.int32(), -- 0 = default, 1 = manual, 2 = automatic
     autoShiftingCruise       = ac.StructItem.boolean(),
     autoShiftingDownBias     = ac.StructItem.double(),
     triggerFeedbackL         = ac.StructItem.double(),
@@ -50,7 +50,7 @@ local savedCfg = ac.storage({
     graphSelection           = 1,
     keyboardMode             = 0,
     autoClutch               = false,
-    autoShifting             = false,
+    autoShiftingMode         = 0,
     autoShiftingCruise       = true,
     autoShiftingDownBias     = 0.7,
     triggerFeedbackL         = 0.0,
@@ -75,7 +75,7 @@ uiData.keyboardMode             = savedCfg.keyboardMode
 uiData.graphSelection           = savedCfg.graphSelection
 uiData.useFilter                = savedCfg.useFilter
 uiData.autoClutch               = savedCfg.autoClutch
-uiData.autoShifting             = savedCfg.autoShifting
+uiData.autoShiftingMode         = savedCfg.autoShiftingMode
 uiData.autoShiftingCruise       = savedCfg.autoShiftingCruise
 uiData.autoShiftingDownBias     = savedCfg.autoShiftingDownBias
 uiData.triggerFeedbackL         = savedCfg.triggerFeedbackL
@@ -159,7 +159,7 @@ local function updateConfig()
     savedCfg.graphSelection           = uiData.graphSelection
     savedCfg.useFilter                = uiData.useFilter
     savedCfg.autoClutch               = uiData.autoClutch
-    savedCfg.autoShifting             = uiData.autoShifting
+    savedCfg.autoShiftingMode         = uiData.autoShiftingMode
     savedCfg.autoShiftingCruise       = uiData.autoShiftingCruise
     savedCfg.autoShiftingDownBias     = uiData.autoShiftingDownBias
     savedCfg.triggerFeedbackL         = uiData.triggerFeedbackL
@@ -441,9 +441,10 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     local correctionBase      = lib.signedPow(math.clamp(-rAxleHVelAngle / 72.0, -1, 1), correctionExponent) * 72.0 / vData.steeringLockDeg -- Base self-steer force
     local selfSteerCap        = lib.clamp01(uiData.maxSelfSteerAngle / vData.steeringLockDeg) -- Max self-steer amount
     local selfSteerStrength   = lowSpeedFade * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
-    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.1275 -- * 0.2125 * 0.6
+    local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.15 * (30.0 / vData.steeringLockDeg) -- 0.2125 * 0.6 = 0.1275 -- 0.159375
     local selfSteerCapT       = math.min(1.0, 4.0 / (2.0 * selfSteerCap)) -- Easing window
-    local selfSteerForce      = math.clamp(selfSteerSmoother:get(lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce, dt), -2.0, 2.0) * selfSteerStrength
+    local rawSelfSteer        = lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce
+    local selfSteerForce      = math.clamp(selfSteerSmoother:get(rawSelfSteer, dt), -2.0, 2.0) * selfSteerStrength
     uiData._selfSteerStrength = selfSteerStrength * (1.0 - absInitialSteering)
 
     -- Steering limit
@@ -644,6 +645,14 @@ function script.update(dt)
 
     local steeringAngleGraphLimit = math.ceil(vehicleSteeringLock / 10.0) * 10.0
     local powerGraphLimit         = math.ceil(vData.perfData:getMaxHP(vData.perfData:getAbsoluteRPM(0.85), 2) * 0.8 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0
+
+    -- local function ellipseRadius(w, h, rad)
+    -- return w * h / math.sqrt(w ^ 2 * math.sin(rad) ^ 2 + h ^ 2 * math.cos(rad) ^ 2)
+    -- end
+
+    -- local fAngle = math.atan2(car.wheels[2].fy, car.wheels[2].fx)
+    -- ac.debug("_thing_0", car.wheels[0].ndSlip * math.cos(fAngle) * ellipseRadius(car.wheels[0].dx, car.wheels[0].dy, fAngle) / car.wheels[0].dx)
+    -- ac.debug("_thing_0", math.clamp(car.wheels[2].ndSlip * math.cos(fAngle) * ellipseRadius(car.wheels[2].dx, car.wheels[2].dy, fAngle), -2, 2), -2, 2) -- this one is kinda useful
 
     ac.debug("A) Relative front slip [%]",            math.round(vData.frontNdSlip * 100.0, 1), 0.0, 200.0)
     ac.debug("B) Relative rear slip [%]",             math.round(vData.rearNdSlip * 100.0, 1), 0.0, 200.0)
