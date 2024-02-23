@@ -195,7 +195,7 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
 
         if self.vehicle.mgukDeliveryCount == 0 then
             local bestArea = 0
-            local areaSkew = math.lerp(1.0, 1.15, (gear - 1) / (self.vehicle.gearCount - 2)) -- 0.9, 1.4
+            local areaSkew = math.lerp(0.95, 1.15, (gear - 1) / (self.vehicle.gearCount - 2)) -- shifts the bias of the power integral higher as the gear number increases
             local nextOverCurrentRatio = self:getGearRatio(gear + 1) / self:getGearRatio(gear)
             for i = 0, 300, 1 do
                 local upshiftRPM = self:getAbsoluteRPM(i / 300.0)

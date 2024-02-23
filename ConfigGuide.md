@@ -130,7 +130,7 @@ Note that since v1.4 this setting makes less of a difference, but the GIF still 
 
 Click the gear icon ⚙️ at the top of the UI app to access additional features.
 
-![UI app settings](https://i.imgur.com/peDHite.png)
+![UI app settings](https://i.imgur.com/LqYhFz6.png)
 
 ### Graphs
 
@@ -170,15 +170,21 @@ Doesn't work on cars that don't have a clutch input, such as semi-automatics. If
 
 ___
 
-### Automatic shifting
+### Shifting mode
 
-Automatically changes gears using a more advanced algorithm than the default one in AC. It's suited for casual cruising, performance driving, and drifting alike. It keeps the shift-up and shift-down buttons functional too, alongside the automatic shifting.
+Changes how gear shifting works.
 
-To use this feature, you have to turn OFF the regular ***Automatic shifting*** option in the game's assist settings! There's no need for the built-in ***Autoblip*** option either, because the custom automatic shifting performs its own rev-matching and clutch operation during gear changes.
+ - **Default** - No change, the default behavior of AC.
+ - **Manual** - Enables custom rev-matching and clutch logic, but gear changes are still manual.
+ - **Automatic** - Enables custom rev-matching and clutch logic, as well as automatic gear changes.
 
-The automatic shifting algorithm will read the car's power curve and calculate the optimal shifting points for each gear to achieve the best acceleration. Currently this doesn't account for the MGU-K (like in modern F1 cars), but this will be improved in the future.
+The ***Automatic*** mode keeps the shift-up and shift-down buttons functional too, for temporary gear overrides. This mode will read the car's power curve and calculate the optimal shifting points for each gear to achieve the best acceleration. Currently this doesn't account for the MGU-K (like in modern F1 cars), but this might be improved in the future.
 
-There are two options to further tweak automatic shifting:
+To use any of the custom settings (other than ***Default***), you have to turn OFF the regular ***Automatic shifting*** option in the game's assist settings! There's no need for the built-in ***Autoblip*** option either. This is what the assist settings should look like to allow the custom modes to work:
+
+![Assist settings](https://i.imgur.com/419eyrF.png)
+
+When using the ***Automatic*** mode, there are two more options you can tweak:
 
  - **Auto-switch into cruise mode** - Automatically switches between performance driving and cruise mode based on your throttle input. The car will upshift a lot sooner when in cruise mode. You can turn this off if you only do racing, especially for rolling starts!
  - **Downshift bias** - Changes how aggressively the car downshifts when decelerating. A high value will make the car downshift basically as soon as it can, however, this can sometimes leave you very near the end of a gear when you start accelerating again.
