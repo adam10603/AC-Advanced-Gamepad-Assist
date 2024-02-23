@@ -271,7 +271,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         end
     end
 
-    if not uiData.autoClutch and not uiData.autoShifting then return end -- Quit here if none of these are enabled
+    if not uiData.autoClutch and uiData.autoShiftingMode == 0 then return end -- Quit here if none of these are enabled
 
     -- ================================ Values used by both the auto clutch and auto shifting
 
@@ -375,14 +375,14 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     -- ================================ Auto shifting
 
-    if vData.vehicle.gearCount < 2 or not uiData.autoShifting then
+    if uiData.autoShiftingMode == 0 or vData.vehicle.gearCount < 2 then
         requestedGear = vData.vehicle.gear
         return
     end
 
     if not vData.perfData.baseTorqueCurve then
         if not errorShown1 then
-            ac.setMessage("Advanced Gamepad Assist", "Error reading engine data. Automatic shifting will be disabled.")
+            ac.setMessage("Advanced Gamepad Assist", "Error reading engine data. Custom shifting modes will be disabled.")
             errorShown1 = true
         end
         return
@@ -390,13 +390,13 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     if vData.vehicle.autoShift then
         if not errorShown3 then
-            ac.setMessage("Advanced Gamepad Assist", "Disable AC's automatic shifting for the custom auto-shifting to work!")
+            ac.setMessage("Advanced Gamepad Assist", "Disable AC's automatic shifting for the custom shifting modes to work!")
             errorShown3 = true
         end
         return
     end
 
-    if vData.vehicle.mgukDeliveryCount > 0 then
+    if vData.vehicle.mgukDeliveryCount > 0 and uiData.autoShiftingMode == 2 then
         if not errorShown4 then
             ac.setMessage("Advanced Gamepad Assist", "Automatic shifting will have reduced accuracy with this car.")
             errorShown4 = true
@@ -449,7 +449,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         tSinceHighGearBurnoutStopped = 0.0
     end
 
-    if not gearOverride then
+    if uiData.autoShiftingMode == 2 and not gearOverride then
 
         local canShiftUp = false
         if vData.vehicle.gear > 0 and vData.vehicle.gear < vData.vehicle.gearCount then

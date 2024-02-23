@@ -13,7 +13,7 @@ local uiData = ac.connect{
     graphSelection           = ac.StructItem.int32(), -- 1 = none, 2 = static, 3 = live
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
     autoClutch               = ac.StructItem.boolean(),
-    autoShifting             = ac.StructItem.boolean(),
+    autoShiftingMode         = ac.StructItem.int32(), -- 0 = default, 1 = manual, 2 = automatic
     autoShiftingCruise       = ac.StructItem.boolean(),
     autoShiftingDownBias     = ac.StructItem.double(),
     triggerFeedbackL         = ac.StructItem.double(),
@@ -57,12 +57,12 @@ local tooltips = {
     presets                  = "This is where you can save or load presets!",
     calibration              = "Performs a quick steering calibration, just in case the assist isn't working correctly.\nYou must stop the car before doing this!",
     graphs                   = "Shows graphs to visualize what the steering assist is doing.\nThey can either be static or updated with live values.",
-    assistEnabled            = "Enables or disables the assist.\nIf unchecked, AC's built-in input processing is used without alterations.",
+    assistEnabled            = "Enables or disables the entire assist.\nIf unchecked, AC's built-in input processing is used without alterations.",
     useFilter                = "Provides a single slider that will adjust most settings automatically for you.",
     autoClutch               = "Automatically controls the clutch if the engine would otherwise stall, or when setting off from a standstill.",
-    autoShifting             = "Automatically shifts gears using a more intelligent algorithm than the default one.\nOnly works if 'Automatic shifting' is DISABLED in the game's assist settings!",
+    autoShiftingMode         = "Default = AC's own gear shifting, no change.\n\nManual = custom rev-matching and clutch logic, but manual shifting only.\n\nAutomatic = custom rev-matching and clutch logic, but with automatic gear shifts. You can still shift manually to temporary override a gear though.\n\nIMPORTANT: Options other than 'Default' only work properly if 'Automatic shifting' is DISABLED in AC's assist settings!",
     autoShiftingCruise       = "Allows the automatic shifting to go between cruise mode and performance mode depending on your throttle input.\nUseful if you want to do both performance driving and casual cruising, but you can disable it for racing (especially for rolling starts).",
-    autoShiftingDownBias     = "Higher = more aggressive downshifting.\nFor example at 90% the car will downshift almost right away when you brake for a turn, however, this might leave you very close to the top of a gear when going back on the throttle again.",
+    autoShiftingDownBias     = "Higher = more aggressive downshifting when using automatic mode.\nFor example at 90% the car will downshift almost immediately when you brake for a turn, however, this might leave you very close to the top of a gear when going back on the throttle again.",
     triggerFeedbackL         = "Vibration feedback on the left trigger when braking.\nOnly works with compatible Xbox controllers!",
     triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating.\nOnly works with compatible Xbox controllers!",
     triggerFeedbackAlwaysOn  = "Allows trigger vibrations even when TCS or ABS are enabled.",
@@ -71,11 +71,11 @@ local tooltips = {
     steeringRate             = "How fast the steering is in general.",
     rateIncreaseWithSpeed    = "How much slower or faster the steering gets as you speed up.",
     selfSteerResponse        = "How aggressive the self-steer force will fight to keep the car straight.\nLow = looser feel and easier to oversteer, high = more assistance to prevent oversteer and keep the car stable.",
-    dampingStrength          = "Counteracts the car's angular momentum which prevents the self-steer force from overcorrecting.\nHigher = more stability.\nHigher 'Response' and 'Max angle' settings require more damping to stop the car from wobbling.\nThe damping force is not limited by the 'Max angle' setting.",
+    dampingStrength          = "This is an advanced setting, and in most cases it's best to leave it at a similar value to 'Response'.\n\nDamping adds some additional self-steer that counteracts the car's yaw rotation which results in more stability.\nHigher 'Response' and 'Max angle' settings require more damping to stop the car from wobbling, especially at high speed.\nThe damping force is not limited by the 'Max angle' setting.",
     maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\nBasically this limits how big of a slide the self-steer can help to recover from.",
     targetSlip               = "Changes the slip angle that the front wheels will target.\nHigher = more steering, lower = less steering.\nMost cars feel best around 90-95%, but you can set it higher if you want to force the car to go over the limit, or to generate more heat in the front tires.\nBeware that the slip angle achieved in reality might be slightly different from the intended amount on some cars.",
     countersteerResponse     = "High = more effective manual countersteering, but also easier to overcorrect a slide.",
-    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle in a typical turn, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower.\nYou might want to use a higher setting for loose-handling cars."
+    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle when cornering, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower.\nYou might want to use a higher setting for loose-handling cars."
 }
 
 local sectionPadding = 10
@@ -430,7 +430,7 @@ local function factoryReset()
     -- // TODO use the event instead of setting these by hand here
     uiData.assistEnabled           = true
     uiData.autoClutch              = false
-    uiData.autoShifting            = false
+    uiData.autoShiftingMode        = 0
     uiData.autoShiftingCruise      = true
     uiData.autoShiftingDownBias    = 0.7
     uiData.triggerFeedbackL        = 0.0
@@ -541,8 +541,11 @@ end
 
 function script.windowMain(dt)
     if not uiData._appCanRun then
-
-        if not lib.clampEased then
+        if ac.getPatchVersionCode() < 2651 then
+            ui.pushStyleColor(ui.StyleColor.Text, rgbm(1.0, 0.0, 0.0, 1.0))
+            ui.textWrapped("Update CSP to 0.2.0 or newer!\nOlder versions are not supported anymore.")
+            ui.popStyleColor(1)
+        elseif not lib.clampEased then
             ui.textWrapped("Advanced Gamepad Assist is not installed!")
         else
             ui.textWrapped("Advanced Gamepad Assist is currently not enabled!")
@@ -626,9 +629,9 @@ function script.windowSettings(dt)
 
     showDummyLine(0.25)
 
-    showCheckbox("autoShifting", "Automatic shifting", false, false, 0)
-    showCheckbox("autoShiftingCruise", "Auto-switch into cruise mode", false, not uiData.autoShifting, 20)
-    showConfigSlider("autoShiftingDownBias", "Downshift bias", "%.f%%", 0.0, 90.0, 100.0, false, 200.0, 20, not uiData.autoShifting)
+    uiData.autoShiftingMode = showCompactDropdown("Shifting mode", "autoShiftingMode", {"Default", "Manual", "Automatic"}, uiData.autoShiftingMode + 1, 0) - 1;
+    showCheckbox("autoShiftingCruise", "Auto-switch into cruise mode", false, uiData.autoShiftingMode < 2, 20)
+    showConfigSlider("autoShiftingDownBias", "Downshift bias", "%.f%%", 0.0, 90.0, 100.0, false, 200.0, 20, uiData.autoShiftingMode < 2)
 
     showDummyLine(0.25)
 
