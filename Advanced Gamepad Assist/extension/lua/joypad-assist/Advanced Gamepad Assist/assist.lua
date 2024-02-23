@@ -646,14 +646,6 @@ function script.update(dt)
     local steeringAngleGraphLimit = math.ceil(vehicleSteeringLock / 10.0) * 10.0
     local powerGraphLimit         = math.ceil(vData.perfData:getMaxHP(vData.perfData:getAbsoluteRPM(0.85), 2) * 0.8 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0
 
-    -- local function ellipseRadius(w, h, rad)
-    -- return w * h / math.sqrt(w ^ 2 * math.sin(rad) ^ 2 + h ^ 2 * math.cos(rad) ^ 2)
-    -- end
-
-    -- local fAngle = math.atan2(car.wheels[2].fy, car.wheels[2].fx)
-    -- ac.debug("_thing_0", car.wheels[0].ndSlip * math.cos(fAngle) * ellipseRadius(car.wheels[0].dx, car.wheels[0].dy, fAngle) / car.wheels[0].dx)
-    -- ac.debug("_thing_0", math.clamp(car.wheels[2].ndSlip * math.cos(fAngle) * ellipseRadius(car.wheels[2].dx, car.wheels[2].dy, fAngle), -2, 2), -2, 2) -- this one is kinda useful
-
     ac.debug("A) Relative front slip [%]",            math.round(vData.frontNdSlip * 100.0, 1), 0.0, 200.0)
     ac.debug("B) Relative rear slip [%]",             math.round(vData.rearNdSlip * 100.0, 1), 0.0, 200.0)
     ac.debug("C) Target front slip angle [deg]",      math.round(vData.perfData:getTargetFrontSlipAngle(), 2), 0.0, 15.0)
