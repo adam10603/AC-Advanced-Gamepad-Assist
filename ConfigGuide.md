@@ -22,13 +22,15 @@ ___
 
 ### Show Presets
 
-![Presets](https://i.imgur.com/Mus0k2L.png)
+![Presets](https://i.imgur.com/HQFfqyB.png)
 
 The "Show Presets" button opens a window where you can save or load presets.
 
 Presets store all the settings in the main window, except for [Enable Advanced Gamepad Assist](#enable-advanced-gamepad-assist).
 
 Presets DO NOT store any setting from the [Extra settings](#extra-settings) menu.
+
+Factory presets will show up with a `*` character in their name, which means you cannot overwrite or delete them.
 
 ___
 
@@ -44,7 +46,7 @@ ___
 
 ### Steering rate
 
-Simply adjusts how fast the steering is.
+Simply adjusts how fast the steering is. Personally I use it in the neighborhood of `50%`, but it's up to preference.
 
 ![Steering rate](https://i.imgur.com/cPd4m0q.gif)
 
@@ -130,7 +132,7 @@ Note that since v1.4 this setting makes less of a difference, but the GIF still 
 
 Click the gear icon ⚙️ at the top of the UI app to access additional features.
 
-![UI app settings](https://i.imgur.com/LqYhFz6.png)
+![UI app settings](https://i.imgur.com/WhE8xi6.png)
 
 ### Graphs
 
@@ -209,6 +211,28 @@ ___
 
 ### Factory reset
 
-Deletes ALL presets, restores factory presets, and resets every setting to its default value.
+Resets every setting to its default value and deletes all presets.
 
 You have to click it twice to confirm.
+
+___
+
+### Gamma
+
+Controls AC's own ***Steering gamma*** setting.
+
+Higher gamma means your analog stick becomes less sensitive near the center. Personally I use `135%`, but it's up to preference.
+
+___
+
+### Deadzone
+
+Controls AC's own ***Steering deadzone*** setting.
+
+Set it just high enough so that the steering is always centered when you're not touching the stick.
+
+___
+
+### Rumble
+
+Controls AC's own ***Rumble effects*** setting.

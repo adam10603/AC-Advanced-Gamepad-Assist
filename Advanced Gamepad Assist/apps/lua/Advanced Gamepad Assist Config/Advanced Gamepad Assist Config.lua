@@ -9,6 +9,9 @@ local uiData = ac.connect{
     _frontNdSlip             = ac.StructItem.double(),
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
+    _gameGamma               = ac.StructItem.double(),
+    _gameDeadzone            = ac.StructItem.double(),
+    _gameRumble              = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
     graphSelection           = ac.StructItem.int32(), -- 1 = none, 2 = static, 3 = live
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
@@ -46,13 +49,22 @@ local presetKeys = {
 }
 
 local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":8,"targetSlip":1,"countersteerResponse":0.4,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.94,"countersteerResponse":0.1,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":6,"steeringRate":0.3},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.4,"maxSelfSteerAngle":90,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
+local factoryPresets     = _json.decode(_factoryPresetsStr)
 
-local savedPresets = ac.storage({presets = _factoryPresetsStr}, "AGA_PRESETS_")
+local savedPresets = ac.storage({presets = "{}"}, "AGA_PRESETS_")
 
 local presets = _json.decode(savedPresets.presets)
 
+-- Removing presets saved by previous versions that have the same names as the factory presets
+for k, _ in pairs(presets) do
+    if factoryPresets[k] ~= nil then
+        presets[k] = nil
+    end
+end
+savedPresets.presets = _json.encode(presets)
+
 local tooltips = {
-    factoryReset             = "DELETES ALL PRESETS, RESTORES FACTORY PRESETS, AND RESETS EVERY SETTING TO ITS DEFAULT!\nClick twice to confirm!",
+    factoryReset             = "RESETS EVERY SETTING TO ITS DEFAULT VALUE AND DELETES ALL PRESETS!\nClick twice to confirm!",
     lockedNote               = "Locked. Uncheck 'Simplified settings' to adjust manually!",
     presets                  = "This is where you can save or load presets!",
     calibration              = "Performs a quick steering calibration, just in case the assist isn't working correctly.\nYou must stop the car before doing this!",
@@ -75,7 +87,11 @@ local tooltips = {
     maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\nBasically this limits how big of a slide the self-steer can help to recover from.",
     targetSlip               = "Changes the slip angle that the front wheels will target.\nHigher = more steering, lower = less steering.\nMost cars feel best around 90-95%, but you can set it higher if you want to force the car to go over the limit, or to generate more heat in the front tires.\nBeware that the slip angle achieved in reality might be slightly different from the intended amount on some cars.",
     countersteerResponse     = "High = more effective manual countersteering, but also easier to overcorrect a slide.",
-    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle when cornering, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower.\nYou might want to use a higher setting for loose-handling cars."
+    maxDynamicLimitReduction = "How much the steering angle is allowed to reduce when the car oversteers while you turn inward, in order to maintain front grip.\nLow = more raw and more prone to front wheel slippage.\nHigh = more assistance to keep front grip in a turn.\nFor the best grip it should be at least as high as the travel angle when cornering, but high values can feel restricting.\nIf you like to throw the car into a turn more aggressively with less assistance, set it lower.\nYou might want to use a higher setting for loose-handling cars.",
+    builtInSettings          = "These directly adjust AC's own settings (just like the Controller Tweaks app), they are just here for convenience.",
+    _gameGamma               = "Controls AC's own \"Steering gamma\" setting.\n\nHigher gamma will make your analog stick less sensitive near the center.",
+    _gameDeadzone            = "Controls AC's own \"Steering deadzone\" setting.\n\nDeadzone is used to avoid unintended inputs caused by stick-drift when you're not touching the analog stick.",
+    _gameRumble              = "Controls AC's own \"Rumble effects\" setting."
 }
 
 local sectionPadding = 10
@@ -116,8 +132,11 @@ local enableClicked = 0
 
 local function getPresetList()
     local keys = {}
+    for k, _ in pairs(factoryPresets) do
+        keys[#keys + 1] = "*" .. k
+    end
     for k, _ in pairs(presets) do
-        keys[#keys + 1] = k
+        if factoryPresets[k] == nil then keys[#keys + 1] = k end
     end
     table.sort(keys)
     return keys
@@ -402,25 +421,40 @@ local function togglePresetsWindow()
 end
 
 local function savePreset(name)
+    if factoryPresets[name] ~= nil then return false end
+
     presets[name] = {}
     for _, pKey in ipairs(presetKeys) do
         if uiData[pKey] ~= nil then presets[name][pKey] = uiData[pKey] end
     end
     savedPresets.presets = _json.encode(presets)
-end
 
-local function loadPreset(name)
-    if presets[name] == nil then return false end
-    for _, pKey in ipairs(presetKeys) do
-        if uiData[pKey] ~= nil and presets[name][pKey] ~= nil then uiData[pKey] = presets[name][pKey] end
-    end
     return true
 end
 
+local function loadPreset(name)
+    if factoryPresets[name] ~= nil then
+        for _, pKey in ipairs(presetKeys) do
+            if uiData[pKey] ~= nil and factoryPresets[name][pKey] ~= nil then uiData[pKey] = factoryPresets[name][pKey] end
+        end
+        return true
+    end
+
+    if presets[name] ~= nil then
+        for _, pKey in ipairs(presetKeys) do
+            if uiData[pKey] ~= nil and presets[name][pKey] ~= nil then uiData[pKey] = presets[name][pKey] end
+        end
+        return true
+    end
+
+    return false
+end
+
 local function deletePreset(name)
-    if presets[name] == nil then return end
+    if presets[name] == nil then return false end
     presets[name] = nil
     savedPresets.presets = _json.encode(presets)
+    return true
 end
 
 local function factoryReset()
@@ -467,16 +501,17 @@ local function popStyle()
     ui.popFont()
 end
 
-local currentPresetName = ""
-local saveFeedbackStart = -1
-local loadFeedbackStart = -1
+local currentPresetName   = ""
+local saveFeedbackStart   = -1
+local loadFeedbackStart   = -1
+local deleteFeedbackStart = -1
 local function drawPresetsWindow()
     ui.beginToolWindow("AGA_presets", tmpVec1:set(ui.windowPos()):add(tmpVec2:set(0, -270)), tmpVec3:set(270, 270), false, true)
 
     ui.text("Preset name:")
 
     ui.setNextItemWidth(ui.availableSpaceX())
-    currentPresetName = ui.inputText("", currentPresetName, ui.InputTextFlags.RetainSelection)
+    currentPresetName = ui.inputText("", currentPresetName, ui.InputTextFlags.RetainSelection):gsub("%*", "")
 
     local loadText = "⤴️ Load"
     local loadFlags = ui.ButtonFlags.None
@@ -485,7 +520,7 @@ local function drawPresetsWindow()
             loadFeedbackStart = -1
         else
             ui.setNextTextBold()
-            loadText = "✅ Loaded!"
+            loadText = "Loaded!"
             loadFlags = ui.ButtonFlags.Disabled
         end
     end
@@ -499,18 +534,29 @@ local function drawPresetsWindow()
             saveFeedbackStart = -1
         else
             ui.setNextTextBold()
-            saveText = "✅ Saved!"
+            saveText = "Saved!"
             saveFlags = ui.ButtonFlags.Disabled
         end
     end
     local saveClicked = ui.button(saveText, tmpVec1:set(ui.availableSpaceX() / 2.0, ui.frameHeight()), saveFlags)
 
     ui.sameLine()
-    local deleteClicked = ui.button("❌ Delete", tmpVec1:set(ui.availableSpaceX(), ui.frameHeight()))
+    local deleteText = "❌ Delete"
+    local deleteFlags = ui.ButtonFlags.None
+    if deleteFeedbackStart ~= -1 then
+        if ui.time() - deleteFeedbackStart > 1.0 then
+            deleteFeedbackStart = -1
+        else
+            ui.setNextTextBold()
+            deleteText = "Deleted!"
+            deleteFlags = ui.ButtonFlags.Disabled
+        end
+    end
+    local deleteClicked = ui.button(deleteText, tmpVec1:set(ui.availableSpaceX(), ui.frameHeight()), deleteFlags)
 
-    if saveClicked and currentPresetName:len() > 0   then savePreset(currentPresetName) saveFeedbackStart = ui.time()  end
-    if loadClicked and currentPresetName:len() > 0   then if loadPreset(currentPresetName) then loadFeedbackStart = ui.time() end end
-    if deleteClicked and currentPresetName:len() > 0 then deletePreset(currentPresetName) end
+    if saveClicked and currentPresetName:len() > 0   then if savePreset(currentPresetName)   then saveFeedbackStart = ui.time() end end
+    if loadClicked and currentPresetName:len() > 0   then if loadPreset(currentPresetName)   then loadFeedbackStart = ui.time() end end
+    if deleteClicked and currentPresetName:len() > 0 then if deletePreset(currentPresetName) then deleteFeedbackStart = ui.time() end end
 
     ui.text("Saved presets:")
 
@@ -520,10 +566,10 @@ local function drawPresetsWindow()
         -- ui.alignTextToFramePadding()
         showDummyLine(0.0)
         for _, preset in ipairs(presetNames) do
-            local isSelected = preset == currentPresetName
+            local isSelected = (preset == currentPresetName or (string.startsWith(preset, "*") and string.sub(preset, 2) == currentPresetName))
             if isSelected then ui.setNextTextBold() end
             if ui.selectable(preset, isSelected) then
-                currentPresetName = preset
+                currentPresetName = preset:gsub("%*", "")
             end
         end
         return 0
@@ -660,5 +706,16 @@ function script.windowSettings(dt)
         resetClicked = resetClicked + dt
     end
 
+    showHeader("Built-in setting shortcuts:")
+    addTooltipToLastItem("builtInSettings")
+
+    showConfigSlider("_gameGamma",    "Gamma", "   %.f%%", 100.0, 300.0, 100.0, false, 200.0, 0)
+    showConfigSlider("_gameDeadzone", "Deadzone", "%.f%%",   0.0, 100.0, 100.0, false, 200.0, 0)
+    showConfigSlider("_gameRumble",   "Rumble",   "%.f%%",   0.0, 100.0, 100.0, false, 200.0, 0)
+
     popStyle()
 end
+
+ac.onSharedEvent("AGA_reloadControlSettings", function ()
+    ac.reloadControlSettings()
+end)
