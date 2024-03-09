@@ -22,6 +22,9 @@ local uiData = ac.connect{
     _frontNdSlip             = ac.StructItem.double(),
     _rearNdSlip              = ac.StructItem.double(),
     _limitReduction          = ac.StructItem.double(),
+    _gameGamma               = ac.StructItem.double(),
+    _gameDeadzone            = ac.StructItem.double(),
+    _gameRumble              = ac.StructItem.double(),
     assistEnabled            = ac.StructItem.boolean(),
     graphSelection           = ac.StructItem.int32(), -- 1 = none, 2 = static, 3 = live
     keyboardMode             = ac.StructItem.int32(), -- 0 = disabled, 1 = enabled, 2 = enabled + brake assist, 3 = enabled + throttle and brake assist
@@ -68,6 +71,52 @@ local savedCfg = ac.storage({
     maxDynamicLimitReduction = 5.0
 }, "AGA_")
 
+-- controls.ini stuff
+
+local gameCfg                  = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "/controls.ini")
+local kbThrottleBind           = ac.KeyIndex.Up
+local kbBrakeBind              = ac.KeyIndex.Down
+local kbSteerLBind             = ac.KeyIndex.Left
+local kbSteerRBind             = ac.KeyIndex.Right
+
+local lastGameGamma            = 0
+local lastGameDeadzone         = 0
+local lastGameRumble           = 0
+local lastGameCfgSave          = 0
+
+local function readGameControls()
+    gameCfg = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "/controls.ini")
+
+    if gameCfg then
+        kbThrottleBind = gameCfg:get("KEYBOARD", "GAS",   kbThrottleBind)
+        kbBrakeBind    = gameCfg:get("KEYBOARD", "BRAKE", kbBrakeBind)
+        kbSteerLBind   = gameCfg:get("KEYBOARD", "LEFT",  kbSteerLBind)
+        kbSteerRBind   = gameCfg:get("KEYBOARD", "RIGHT", kbSteerRBind)
+
+        lastGameGamma    = gameCfg:get("X360", "STEER_GAMMA",      lastGameGamma)
+        lastGameDeadzone = gameCfg:get("X360", "STEER_DEADZONE",   lastGameDeadzone)
+        lastGameRumble   = gameCfg:get("X360", "RUMBLE_INTENSITY", lastGameRumble)
+    end
+
+    uiData._gameGamma    = lastGameGamma
+    uiData._gameDeadzone = lastGameDeadzone
+    uiData._gameRumble   = lastGameRumble
+end
+
+readGameControls()
+
+local function setGameCfgValue(section, key, value)
+    local currentTime = os.clock()
+    if (currentTime - lastGameCfgSave) > 0.25 then
+        if gameCfg:setAndSave(section, key, value) then
+            lastGameCfgSave = currentTime
+            ac.broadcastSharedEvent("AGA_reloadControlSettings")
+            return true
+        end
+    end
+    return false
+end
+
 -- Initializing shared cfg
 uiData._appCanRun               = false
 uiData.assistEnabled            = savedCfg.assistEnabled
@@ -108,19 +157,6 @@ local vehicleSteeringLock      = math.NaN -- Degrees
 local slowLog                  = false
 
 local storedCarPerformanceData = nil
-
-local gameCfg                  = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "/controls.ini")
-local kbThrottleBind           = ac.KeyIndex.Up
-local kbBrakeBind              = ac.KeyIndex.Down
-local kbSteerLBind             = ac.KeyIndex.Left
-local kbSteerRBind             = ac.KeyIndex.Right
-
-if gameCfg then
-    kbThrottleBind = gameCfg:get("KEYBOARD", "GAS",   kbThrottleBind)
-    kbBrakeBind    = gameCfg:get("KEYBOARD", "BRAKE", kbBrakeBind)
-    kbSteerLBind   = gameCfg:get("KEYBOARD", "LEFT",  kbSteerLBind)
-    kbSteerRBind   = gameCfg:get("KEYBOARD", "RIGHT", kbSteerRBind)
-end
 
 -- Calibration stuff
 
@@ -174,6 +210,24 @@ local function updateConfig()
     savedCfg.maxSelfSteerAngle        = uiData.maxSelfSteerAngle
     savedCfg.countersteerResponse     = uiData.countersteerResponse
     savedCfg.maxDynamicLimitReduction = uiData.maxDynamicLimitReduction
+
+    if math.abs(lastGameGamma - uiData._gameGamma) > 1e-6 then
+        if setGameCfgValue("X360", "STEER_GAMMA", uiData._gameGamma) then
+            lastGameGamma = uiData._gameGamma
+        end
+    end
+
+    if math.abs(lastGameDeadzone - uiData._gameDeadzone) > 1e-6 then
+        if setGameCfgValue("X360", "STEER_DEADZONE", uiData._gameDeadzone) then
+            lastGameDeadzone = uiData._gameDeadzone
+        end
+    end
+
+    if math.abs(lastGameRumble - uiData._gameRumble) > 1e-6 then
+        if setGameCfgValue("X360", "RUMBLE_INTENSITY", uiData._gameRumble) then
+            lastGameRumble = uiData._gameRumble
+        end
+    end
 
     -- uiData._appCanRun = true
 end
@@ -354,8 +408,31 @@ end
 --     return objRight
 -- end
 
+local prevGearSetHash = 0
+-- Returns `true` if the gear set hash had to be updated
+---@param vehicle ac.StateCar
+---@param cPhys ac.StateCarPhysics
+local function updateGearSetHash(vehicle, cPhys)
+
+    if vehicle.gearCount < 1 or not cPhys.gearRatios or #cPhys.gearRatios == 0 then return false end
+
+    local currentGearSetHash = 0
+
+    for gear = 1, vehicle.gearCount, 1 do
+        currentGearSetHash = currentGearSetHash + (cPhys.gearRatios[gear + 1] * gear * 16)
+    end
+
+    currentGearSetHash = currentGearSetHash + cPhys.finalRatio * 1024
+
+    local ret = (currentGearSetHash ~= prevGearSetHash)
+
+    prevGearSetHash = currentGearSetHash
+
+    return ret
+end
+
 local storedLocalWheelVel      = {[0] = vec3(), vec3(), vec3(), vec3()} -- Stores local wheel velocities to avoid creating new vectors on every update
-local storedWeightedFLocalVel  = vec3()
+-- local storedWeightedFLocalVel  = vec3()
 local storedFAxleLocalVel      = vec3()
 local storedRAxleLocalVel      = vec3()
 local storedMiddleVel          = vec3()
@@ -374,17 +451,19 @@ local function getVehicleData(dt, skipCalibration)
     local rWheelWeights   = {lib.zeroGuard(vehicle.wheels[2].load), lib.zeroGuard(vehicle.wheels[3].load)}
     local allWheelWeights = {fWheelWeights[1], fWheelWeights[2], rWheelWeights[1], rWheelWeights[2]}
 
-    -- Updating wheel loads and local wheel velocities
+    -- Updating local wheel velocities
     for i = 0, 3 do
         lib.getPointVelocity(localWheelPositions[i], vehicle.localAngularVelocity, vehicle.localVelocity, storedLocalWheelVel[i])
     end
 
-    lib.weightedVecAverage({storedLocalWheelVel[0], storedLocalWheelVel[1]}, fWheelWeights, storedWeightedFLocalVel)
+    -- lib.weightedVecAverage({storedLocalWheelVel[0], storedLocalWheelVel[1]}, fWheelWeights, storedWeightedFLocalVel)
     lib.getPointVelocity(fAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedFAxleLocalVel)
     lib.getPointVelocity(rAxlePos, vehicle.localAngularVelocity, vehicle.localVelocity, storedRAxleLocalVel)
     lib.getPointVelocity(avgWheelPos, vehicle.localAngularVelocity, vehicle.localVelocity, storedMiddleVel)
 
-    if not storedCarPerformanceData then
+    local cPhys = ac.getCarPhysics(vehicle.index)
+
+    if not storedCarPerformanceData or updateGearSetHash(vehicle, cPhys) then
         storedCarPerformanceData = CarPerformanceData:new(vehicle)
     end
 
@@ -406,13 +485,13 @@ local function getVehicleData(dt, skipCalibration)
         totalNdSlip           = lib.numberGuard(lib.weightedAverage({vehicle.wheels[0].ndSlip, vehicle.wheels[1].ndSlip, vehicle.wheels[2].ndSlip, vehicle.wheels[3].ndSlip}, allWheelWeights)),
         fwdVelClamped         = math.max(0.0, storedMiddleVel.z), -- Velocity along the local forwrad axis, positive only (m/s)
         steeringLockDeg       = lib.numberGuard(vehicleSteeringLock, math.abs(inputData.steerLock / inputData.steerRatio)),
-        weightedFLocalVel     = storedWeightedFLocalVel, -- Weighted average local velocity of the front wheels
+        -- weightedFLocalVel     = storedWeightedFLocalVel, -- Weighted average local velocity of the front wheels
         fAxleLocalVel         = storedFAxleLocalVel, -- Local velocity of the front axle (same as the average of the front wheels)
         rAxleLocalVel         = storedRAxleLocalVel, -- Local velocity of the rear axle (same as the average of the rear wheels)
         fAxleHVelLen          = math.sqrt(storedFAxleLocalVel.x * storedFAxleLocalVel.x + storedFAxleLocalVel.z * storedFAxleLocalVel.z),
         steeringCurveExponent = steeringExponent, -- Used with normalizedSteeringToInput() and inputToNormalizedSteering()
         frontGrounded         = groundedSmoother:get((vehicle.wheels[0].loadK == 0.0 and vehicle.wheels[1].loadK == 0.0) and 0.0 or 1.0, dt), -- Smoothed 0-1 value to indicate if the steered wheels are grounded
-        cPhys                 = ac.getCarPhysics(vehicle.index),
+        cPhys                 = cPhys,
         currentSteeringAngle  = getCurrentSteeringAngleDeg(vehicle, inverseBodyTransform),
         perfData              = storedCarPerformanceData
     }
@@ -428,7 +507,7 @@ end
 local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, dt)
     -- Calculating baseline data
 
-    local fAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.fAxleLocalVel.x, math.abs(vData.fAxleLocalVel.z)))) -- Angle of the weighted average front wheel velocity on the local horizontal plane, corrected for reverse (deg)
+    local fAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.fAxleLocalVel.x, math.abs(vData.fAxleLocalVel.z)))) -- Angle of the front axle velocity on the local horizontal plane, corrected for reverse (deg)
     local rAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.rAxleLocalVel.x, math.abs(vData.rAxleLocalVel.z)))) -- Angle of the rear axle velocity on the local horizontal plane, corrected for reverse (deg)
     local localVelHAngle       = lib.numberGuard(math.deg(math.atan2(vData.localVel.x, math.abs(vData.localVel.z)))) -- Angle of the car's velocity on the local horizontal plane, corrected for reverse (deg)
     local inputSign            = math.sign(initialSteering) -- Sign of the initial steering input by the player (after smoothing)
@@ -636,7 +715,7 @@ function script.update(dt)
     if slowLog then
         logTimer = logTimer + dt
 
-        if logTimer < 0.015 then
+        if logTimer < 0.0125 then
             return
         end
 
@@ -644,7 +723,7 @@ function script.update(dt)
     end
 
     local steeringAngleGraphLimit = math.ceil(vehicleSteeringLock / 10.0) * 10.0
-    local powerGraphLimit         = math.ceil(vData.perfData:getMaxHP(vData.perfData:getAbsoluteRPM(0.85), 2) * 0.8 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0
+    local powerGraphLimit         = math.ceil(vData.perfData:getMaxHP(vData.perfData:getAbsoluteRPM(0.85), 2) * 1.1 * ((vData.vehicle.mgukDeliveryCount > 0) and 1.75 or 1.0) / 100.0) * 100.0
 
     ac.debug("A) Relative front slip [%]",            math.round(vData.frontNdSlip * 100.0, 1), 0.0, 200.0)
     ac.debug("B) Relative rear slip [%]",             math.round(vData.rearNdSlip * 100.0, 1), 0.0, 200.0)
@@ -660,6 +739,10 @@ function script.update(dt)
     ac.debug("L) Drivertrain power [HP]",             vData.vehicle.drivetrainPower, 0.0, powerGraphLimit)
     ac.debug("M) Extended physics",                   vData.vehicle.extendedPhysics)
 end
+
+ac.onControlSettingsChanged(function ()
+    readGameControls()
+end)
 
 ac.onRelease(function()
     uiData._appCanRun = false
