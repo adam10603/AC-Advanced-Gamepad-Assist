@@ -364,6 +364,57 @@ function M.SmoothTowards:reset()
     self.state = self.startingValue
 end
 
+-- SmoothTowards2 class
+-- would be a better version of SmoothTowards, but im lazy to migrate the whole project to use this
+
+-- M.SmoothTowards2 = {}
+
+-- function M.SmoothTowards2:new(rate, linearity, minValue, maxValue, startingValue)
+--     startingValue = startingValue or 0
+--     self.__index = self
+--     return setmetatable({
+--         rate          = rate,
+--         linearity     = linearity,
+--         range         = maxValue - minValue,
+--         state         = startingValue,
+--         startingValue = startingValue
+--     }, self)
+-- end
+
+-- function M.SmoothTowards2:get(val, dt)
+--     local x1             = self.linearity - 0.5
+--     local rateCorrection = x1 * x1 * 0.2 + 0.95
+--     local change         = dt * self.range * self.rate * rateCorrection
+--     local v0             = self.state + (val - self.state) * (change * 2.0)
+--     local v1             = (math.abs(val - self.state) <= change) and val or (self.state + math.sign(val - self.state) * change)
+--     self.state           = v0 + (v1 - v0) * self.linearity
+
+--     return self.state
+-- end
+
+-- function M.SmoothTowards2:getWithRate(val, dt, rate)
+--     local originalRate = self.rate
+--     self.rate          = rate
+--     local ret          = self:get(val, dt)
+--     self.rate          = originalRate
+
+--     return ret
+-- end
+
+-- function M.SmoothTowards2:getWithRateMult(val, dt, rateMult)
+--     return self:getWithRate(val, dt, self.rate * rateMult)
+-- end
+
+-- function M.SmoothTowards2:value()
+--     return self.state
+-- end
+
+-- function M.SmoothTowards2:reset()
+--     self.state = self.startingValue
+-- end
+
+-- 
+
 local _valueHistory = {}
 function M.measureUpdateRate(key, value, dt)
     if not _valueHistory[key] then

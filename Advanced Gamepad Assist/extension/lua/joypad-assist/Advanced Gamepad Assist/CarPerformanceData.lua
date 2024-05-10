@@ -79,13 +79,14 @@ function M:new(vehicle)
     local shiftUpTime    = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
     local shiftDownTime  = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
     local defaultShiftUp = drivetrainINI:get("AUTO_SHIFTER", "UP", math.lerp(idleRPM, maxRPM, 0.7))
+    local electronicBlip = drivetrainINI:get("AUTOBLIP", "ELECTRONIC", 0)
 
     local cPhys          = ac.getCarPhysics(vehicle.index)
     local tiresINI       = ac.INIConfig.carData(car.index, "tyres.ini")
 
     self.__index = self
 
-    return setmetatable({
+    local obj = setmetatable({
         vehicle                         = vehicle,
         brokenEngineIni                 = brokenEngineINI,
         baseTorqueCurve                 = torqueCurve,
@@ -96,6 +97,7 @@ function M:new(vehicle)
         shiftUpTime                     = shiftUpTime,
         shiftDownTime                   = shiftDownTime,
         defaultShiftUpRPM               = defaultShiftUp,
+        electronicBlip                  = electronicBlip,
         gearRatios                      = table.clone(cPhys.gearRatios, true),
         finalDrive                      = cPhys.finalRatio,
         tiresINI                        = tiresINI,
@@ -104,8 +106,18 @@ function M:new(vehicle)
         fastLearningTime                = 0,
         lastCompound                    = -1,
         frontFlexGain                   = 0,
-        frontFZ0                        = 0
+        frontFZ0                        = 0,
+        maxEnginePower                  = 200
     }, self)
+
+    if not obj.brokenEngineIni and obj.baseTorqueCurve then
+        for rpm = 0.0, 1.0, 0.05 do
+            local p = obj:getMaxHP(obj:getAbsoluteRPM(rpm), 1)
+            if p > obj.maxEnginePower then obj.maxEnginePower = p end
+        end
+    end
+
+    return obj
 end
 
 function M:getNormalizedRPM(rpm)
@@ -195,7 +207,7 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
 
         if self.vehicle.mgukDeliveryCount == 0 then
             local bestArea = 0
-            local areaSkew = math.lerp(0.95, 1.15, (gear - 1) / (self.vehicle.gearCount - 2)) -- shifts the bias of the power integral higher as the gear number increases
+            local areaSkew = math.lerp(1.0, 1.2, (gear - 1) / (self.vehicle.gearCount - 2)) -- shifts the bias of the power integral higher as the gear number increases
             local nextOverCurrentRatio = self:getGearRatio(gear + 1) / self:getGearRatio(gear)
             for i = 0, 300, 1 do
                 local upshiftRPM = self:getAbsoluteRPM(i / 300.0)
