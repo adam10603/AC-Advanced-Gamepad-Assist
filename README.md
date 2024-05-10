@@ -1,6 +1,6 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.4.3-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0+-green.svg)
+![Version](https://img.shields.io/badge/Version-1.5.0-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0+-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
@@ -59,6 +59,8 @@ That's pretty much it, the assist should be working now.
 In AC's own control settings, you can set the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders to your liking, but the other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
 
 ![Control settings](https://i.imgur.com/rP0NoyC.png)
+
+The good news is that the included UI app also lets you adjust AC's built-in settings, so you can just use the UI app to tune everything in one place.
 
 If you want to drive on keyboard, set up the binds for it in AC's control settings, then set the ***Input method*** to ***Gamepad*** and check the ***Combine with keyboard*** option. You'll also have to enable keyboard input in the in-game UI app.
 
