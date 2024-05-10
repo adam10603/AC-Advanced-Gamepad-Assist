@@ -415,8 +415,8 @@ M.update = function(vData, uiData, absInitialSteering, dt)
 
     local prevRequestedGear = requestedGear
 
-    updateGearOverride(vData, dt)
-    local cruiseFactor = getCruiseFactor(vData, uiData, absInitialSteering, dt)
+    updateGearOverride(vData, dt) -- Detecting manual shifting inputs and overriding gears accordingly
+    local cruiseFactor = getCruiseFactor(vData, uiData, absInitialSteering, dt) -- Updating cruise mode based on throttle input history
 
     local avoidDownshift = false -- Protects gears that were manually shifted up into
 
@@ -451,6 +451,8 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     end
 
     if uiData.autoShiftingMode == 2 and not gearOverride then
+
+        -- Main shifting logic
 
         local canShiftUp = false
         if vData.vehicle.gear > 0 and vData.vehicle.gear < vData.vehicle.gearCount then
@@ -499,6 +501,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- Requesting the desired gear
     requestGear(vData, dt)
 
+    -- Dealing with clutch and rev-matching
     if (tSinceUpshift < vData.perfData.shiftUpTime or tSinceDownshift < vData.perfData.shiftDownTime) and vData.inputData.clutch > 0.999 then
         if tSinceDownshift < tSinceUpshift then tSinceDownshiftOver = 0.0 else tSinceDownshiftOver = 999.0 end
         vData.inputData.clutch = 0.0
@@ -514,7 +517,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     else
         tSinceDownshiftOver = tSinceDownshiftOver + dt
         revMatchController:reset()
-        vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, lib.clamp01(tSinceDownshiftOver / 0.05)) -- A very short fade-in period of 50ms when engaging the clutch after a downshift
+        vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, lib.clamp01(tSinceDownshiftOver / 0.05)) -- Clutch fade-in of 50ms when engaging it after a downshift
     end
 end
 

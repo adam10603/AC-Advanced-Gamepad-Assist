@@ -2,7 +2,7 @@
 
 The default settings should be ok for most people, but there are many ways to fine-tune the steering feel using the included UI app.
 
-![UI app](https://i.imgur.com/G41Kf7I.png)
+![UI app](https://i.imgur.com/Wd9Rr60.png)
 
 # General
 
@@ -46,7 +46,9 @@ ___
 
 ### Steering rate
 
-Simply adjusts how fast the steering is. Personally I use it in the neighborhood of `50%`, but it's up to preference.
+Simply adjusts how fast the steering is. A lower rate applies more smoothing to your steering input, but going too low can feel unresponsive. Personally I'd recommend between `30%` and `60%`, but it's up to preference.
+
+Keep in mind that keyboard steering might need a lower rate compared to controllers in order to keep the car more stable when tapping the keys.
 
 ![Steering rate](https://i.imgur.com/cPd4m0q.gif)
 
@@ -74,19 +76,17 @@ This doesn't apply to the self-steer tendency of the car, only to manual counter
 
 ___
 
-### Max dynamic limit reduction
+### Dynamic steering limit
 
-Normally the assist will try to keep the front wheels at their ideal slip angle during a turn, but this also means that the steering would wind back quite a lot if the car starts to oversteer. This setting will limit how much the steering angle can reduce while you turn inward when the car is oversteering.
+Normally the assist will try to keep the front wheels at their ideal slip angle during a turn, but this also means that the steering would wind back quite a lot if the car starts to oversteer. This setting can adjust how much the steering angle will reduce while you turn inward when the car is oversteering.
 
-![Dynamic limit reduction](https://i.imgur.com/BicDQ7Q.gif)
+![Dynamic limit reduction](https://i.imgur.com/GKgeWUa.gif)
 
 In the GIF above, the car starts to oversteer on corner entry, and you can see the difference in how much the steering is allowed compensate for this (despite the player fully turning inwards in both cases).
 
-Setting this lower makes it more likely to steer more than required, especially during a harsh corner entry. On the other hand, a higher setting will allow the steering to reduce more in order to maintain the best front slip angle. However, setting it too high might feel too restrictive, as the assist will be allowed to override your input more.
+Setting this lower allows you to turn inwards more when the car steps out, letting you scrub the front tires more. On the other hand, a higher setting will limit how much you can steer into a slide in order to prevent overworking the front tires. However, setting it too high might feel too restrictive, as the assist will be allowed to override your input more.
 
-The actual reduction in steering angle won't always reach the value set here. The steering will always stop winding back near the center, even if you allow more reduction with this setting. This is to ensure that you always have the ability to turn slightly inward if you want to, even in a slide. You can see the actual value in real-time with [Graphs](#graphs) set to ***Live***.
-
-For maintaining the best front grip, this should be at least as high as the travel angle in a typical turn. Around `5°` is enough for that in most cars. But if you want to be able to throw the car into a turn more aggressively (and don't mind some tire slippage), then you can set it lower. Note that with `0°` you'll pretty much always steer more than required when you give full input.
+You can see the actual reduction in steering angle in real-time with [Graphs](#graphs) set to ***Live***.
 
 ___
 
@@ -132,7 +132,7 @@ Note that since v1.4 this setting makes less of a difference, but the GIF still 
 
 Click the gear icon ⚙️ at the top of the UI app to access additional features.
 
-![UI app settings](https://i.imgur.com/WhE8xi6.png)
+![UI app settings](https://i.imgur.com/Fy7ZHoC.png)
 
 ### Graphs
 
