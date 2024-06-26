@@ -48,7 +48,7 @@ local uiData = ac.connect{
     dampingStrength          = ac.StructItem.double(),
     maxSelfSteerAngle        = ac.StructItem.double(),
     countersteerResponse     = ac.StructItem.double(),
-    maxDynamicLimitReduction = ac.StructItem.double()
+    maxDynamicLimitReduction = ac.StructItem.double() -- Stores 10x the value for legacy reasons
 }
 
 -- Config saved to disk
@@ -521,7 +521,6 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
 
     local fAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.fAxleLocalVel.x, math.abs(vData.fAxleLocalVel.z)))) -- Angle of the front axle velocity on the local horizontal plane, corrected for reverse (deg)
     local rAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.rAxleLocalVel.x, math.abs(vData.rAxleLocalVel.z)))) -- Angle of the rear axle velocity on the local horizontal plane, corrected for reverse (deg)
-    local localVelHAngle       = lib.numberGuard(math.deg(math.atan2(vData.localVel.x, math.abs(vData.localVel.z)))) -- Angle of the car's velocity on the local horizontal plane, corrected for reverse (deg)
     local inputSign            = math.sign(initialSteering) -- Sign of the initial steering input by the player (after smoothing)
     local lowSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6)) -- Used for fading some effects at low speed
     local midSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (60.0 / 3.6)) -- Used for fading some effects at medium speed
@@ -542,10 +541,10 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
 
     local finalTargetSlip      = targetFrontSlipDeg * uiData.targetSlip
     uiData._maxLimitReduction  = math.lerp(finalTargetSlip * 0.4, finalTargetSlip * 0.75, lib.clamp01(uiData.maxDynamicLimitReduction / 10.0)) -- math.lerp(0.8, 1.2, lib.clamp01(vData.localHVelLen / getTopSpeedEstimate(vData)))
-    local angleSubLimit        = math.lerp(uiData._maxLimitReduction, uiData._maxLimitReduction * 0.8, vData.inputData.brake) -- How many degrees the steering limit is allowed to reduce when the car oversteers, in the process of trying to maintain the desired front slip angle -- + math.max(0.0, -inputSign * selfSteerForce * vData.steeringLockDeg)
+    local angleSubLimit        = math.lerp(uiData._maxLimitReduction, uiData._maxLimitReduction * 0.9, vData.inputData.brake) -- How many degrees the steering limit is allowed to reduce when the car oversteers, in the process of trying to maintain the desired front slip angle -- + math.max(0.0, -inputSign * selfSteerForce * vData.steeringLockDeg)
     local clampedFAxleVelAngle = lib.clampEased(inputSign * fAxleHVelAngle, -vData.steeringLockDeg - 15.0, angleSubLimit, (angleSubLimit * 0.4) / (vData.steeringLockDeg + 15.0 + angleSubLimit)) -- Limiting how much the front velocity angle can affect the steering limit
     if vData.localHVelLen > 1e-15 then
-        uiData._rAxleHVelAngle = localVelHAngle
+        uiData._rAxleHVelAngle = rAxleHVelAngle
         uiData._limitReduction = math.max(clampedFAxleVelAngle, 0.0)
     end
 
@@ -771,6 +770,7 @@ function script.update(dt)
     ac.debug("K) Engine limiter active",              vData.vehicle.isEngineLimiterOn)
     ac.debug("L) Drivertrain power [HP]",             vData.vehicle.drivetrainPower, 0.0, powerGraphLimit)
     ac.debug("M) Extended physics",                   vData.vehicle.extendedPhysics)
+
 end
 
 ac.onControlSettingsChanged(function ()

@@ -73,6 +73,8 @@ function M:new(vehicle)
         end
     end
 
+    -- // TODO add MGU as well
+
     -- Reading drivetrain data
 
     local drivetrainINI  = ac.INIConfig.carData(vehicle.index, "drivetrain.ini")
@@ -232,6 +234,7 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
         }
     end
 
+    -- Setting first and last by hand
     gearData[1].gearStartRPM = (self:getGearRatio(2) / self:getGearRatio(1)) * gearData[2].gearStartRPM
     gearData[self.vehicle.gearCount] = {
         upshiftRPM = 9999999,
