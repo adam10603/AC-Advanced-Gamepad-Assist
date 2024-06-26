@@ -701,7 +701,7 @@ function script.windowSettings(dt)
 
     uiData.autoShiftingMode = showCompactDropdown("Shifting mode", "autoShiftingMode", {"Default", "Manual", "Automatic"}, uiData.autoShiftingMode + 1, 0) - 1;
     showCheckbox("autoShiftingCruise", "Auto-switch into cruise mode", false, uiData.autoShiftingMode < 2, 20)
-    showConfigSlider("autoShiftingDownBias", "Downshift bias", "%.f%%", 0.0, 90.0, 100.0, false, 200.0, 20, uiData.autoShiftingMode < 2)
+    showConfigSlider("autoShiftingDownBias", "Downshift bias", "%.f%%", 10.0, 90.0, 100.0, false, 200.0, 20, uiData.autoShiftingMode < 2)
 
     showDummyLine(0.25)
 
