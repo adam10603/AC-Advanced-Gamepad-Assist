@@ -221,7 +221,7 @@ ___
 
 Controls AC's own ***Steering gamma*** setting.
 
-Higher gamma means your analog stick becomes less sensitive near the center. Personally I use `135%`, but it's up to preference.
+Higher gamma means your analog stick becomes less sensitive near the center. Personally I use `140%`, but it's up to preference.
 
 ___
 
