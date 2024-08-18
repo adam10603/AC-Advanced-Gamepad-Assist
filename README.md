@@ -1,12 +1,12 @@
 # Assetto Corsa: Advanced Gamepad Assist
 
-![Version](https://img.shields.io/badge/Version-1.5.1-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0+-green.svg)
+![Version](https://img.shields.io/badge/Version-1.5.2-blue.svg) ![Compatibility](https://img.shields.io/badge/CSP-0.2.0+-green.svg)
 
 ![Banner](https://i.imgur.com/AiZvIHx.png)
 
 ## 🖊️ Intro
 
-This is a mod for Assetto Corsa that provides an input processing system for players on controller or keyboard. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on controller or keyboard regardless of skill level.
+This is a mod for Assetto Corsa that provides a custom input system for players on controller or keyboard. It aims for improved steering feel and car control, while being highly customizable. It's suitable for all driving styles including racing, drifting etc., and it's recommended to anyone on controller or keyboard regardless of skill level.
 
 It works in single player as well as on any online server.
 
@@ -21,56 +21,45 @@ The main features of this mod include:
 
 ## 📖 Why?
 
-There are a number of Gamepad FX scripts for Assetto Corsa out there that target the same issues with controller input. However, assists like this are quite the task to get right, and most driving games out there (including AC) are sadly lacking in this regard. But the fact that there are so many other similar mods for AC to solve this issue shows that there's demand for this kind of thing.
+Many driving games (including AC) are sadly lacking when it comes to controller input feel. Yes, you can technically drive with a controller in AC without any mods, but it's far from ideal. The steering feels very twitchy and nearly impossible to control, which isn't a skill issue, it's just that the game doesn't do a good job at translating controller inputs to the car. It doesn't have to be like this though, and this is where mods like this one come in.
 
-My biggest problem with most other assists I found is they simply take the force-feedback value from AC and slap it onto your input in one way or another. This might sound fine at first considering that the goal is overcoming the lack of FFB, but in practice doing it that way has a number of drawbacks, since the game's FFB force was never meant for this purpose. There are other ways of achieving a similar effect that are much better suited for non-FFB input devices.
-
-As to why assists like this are needed in general, that's mostly about overcoming the limitations that come from the lack of FFB and the small or no analog movement range. I've made a similar mod for BeamNG.drive before, and on the Github repo of that mod I have a longer page with the reasoning behind assists like this. [You can read that page here](https://github.com/adam10603/BeamNG-Advanced-Steering/blob/release/Explanation.md) if you're interested.
+In general, it's mostly about overcoming the limitations that come from the lack of FFB and the small or no analog movement range. I've made a similar mod for BeamNG.drive before, and on the Github repo of that mod I have a longer page with the reasoning behind assists like this. [You can read that page here](https://github.com/adam10603/BeamNG-Advanced-Steering/blob/release/Explanation.md) if you're interested.
 
 ## 🖥️ Installation
 
 This mod requires [***Content Manager***](https://assettocorsa.club/content-manager.html) and [***Custom Shaders Patch***](https://acstuff.ru/patch/) to be installed!
 
-First, download the latest version from [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) or from [***RaceDepartment***](https://www.racedepartment.com/downloads/advanced-gamepad-assist.62485/).
+First, download the latest version from [***Releases***](https://github.com/adam10603/AC-Advanced-Gamepad-Assist/releases) or from [***Overtake***](https://www.overtake.gg/downloads/advanced-gamepad-assist.62485/).
 
-**DO NOT just drag the zip file into Content Manager** like usual, unfortunately that doesn't install all the files correctly.
+**DO NOT just drag the zip file into Content Manager** like usual, unfortunately that doesn't install it correctly.
 
-You can install the mod in two ways:
-
-#### If you have the lite (free) version of Content Manager:
+#### To install the mod:
 
  - Open the `Advanced Gamepad Assist` folder, and copy the `apps` and `extension` folders.
  - Paste the two folders into your main `assettocorsa` folder.
 
-#### If you own the full (paid) version of Content Manager:
+![Installation](https://i.imgur.com/FjAcBk9.png)
 
- - Copy the `Advanced Gamepad Assist` folder, and paste it inside the `assettocorsa/mods` folder.
-   - If you don't see the `mods` folder then create it.
- - Open ***Content Manager***, go to ***Content*** on the upper right, then to ***Mods*** on the upper left.
- - Make sure that ***Advanced Gamepad Assist*** is enabled (should be on the right side).
+Optionally, if you have the full (paid) version of Content Manager and you know how to use the `mods` folder, you can install it there instead too.
 
 ## 🛠 Setup
 
  - Open ***Content Manager***, go to ***Settings*** on the upper right, then ***Custom Shaders Patch*** on the upper left, and ***Gamepad FX*** on the left.
- - Make sure ***Active*** is checked, and select the ***Advanced Gamepad Assist*** script.
+ - Make sure ***Active*** is checked under ***Gamepad Script***, and select the ***Advanced Gamepad Assist*** script.
+ - Now go to ***Settings*** on the upper right, ***Assetto Corsa*** on the upper left, then ***Controls*** on the left.
+ - Here make sure the ***Input Method*** is set to ***Gamepad***.
 
-That's pretty much it, the assist should be working now.
-
-In AC's own control settings, you can set the ***Steering gamma***, ***Steering deadzone*** and ***Rumble effects*** sliders to your liking, but the other sliders won't change anything while using this assist. Below you can see the ones that don't matter crossed out with red:
-
-![Control settings](https://i.imgur.com/rP0NoyC.png)
-
-The good news is that the included UI app also lets you adjust AC's built-in settings, so you can just use the UI app to tune everything in one place.
+When it comes to AC's built-in steering settings, you don't need to worry about them. They either don't make a difference when using this mod, or the ones that do can be adjusted through the in-game UI app anyway.
 
 If you want to drive on keyboard, set up the binds for it in AC's control settings, then set the ***Input method*** to ***Gamepad*** and check the ***Combine with keyboard*** option. You'll also have to enable keyboard input in the in-game UI app.
 
-Beyond this, any further configuration is done through the UI app in-game.
+When the mod is installed and used for the first time, it automatically sets some of AC's steering settings to reasonable defaults. Specifically, it sets the steering gamma to 140%, deadzone to 12%, and rumble effects to 0%. Of course you can tweak these settings any time from the UI app, these defaults are just there for a good out-of-the-box experience that should work for most people.
 
 ## 🎮 Usage
 
-When you first start driving a car, a quick steering calibration will take place to ensure the assist can work properly. You won't be able to drive while this is happening, but it only lasts a second or so.
+When you first start driving a car, a quick steering calibration will take place. You won't be able to drive while this is happening, but it only lasts a second or so.
 
-If you want to tweak the steering feel, you can add the UI app called ***Advanced Gamepad Assist Config*** from the side menu in-game.
+If you want to tweak the steering feel (and more) on the fly, you can add the UI app called ***Advanced Gamepad Assist Config*** from the side menu in-game.
 
 ![Adding the UI app](https://i.imgur.com/Ffms6Rd.png)
 

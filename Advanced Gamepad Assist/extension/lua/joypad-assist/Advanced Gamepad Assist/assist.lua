@@ -51,34 +51,40 @@ local uiData = ac.connect{
     maxDynamicLimitReduction = ac.StructItem.double() -- Stores 10x the value for legacy reasons
 }
 
+local firstInstall = false -- Set to true on the very first boot after installing the assist
+
+if table.nkeys(ac.INIConfig.load(ac.findFile(ac.getFolder(ac.FolderID.ScriptConfig) .. ".ini")).sections) == 0 then
+    firstInstall = true
+end
+
 -- Config saved to disk
 local savedCfg = ac.storage({
     assistEnabled            = true,
     graphSelection           = 1,
     keyboardMode             = 0,
     -- mouseSteering            = false,
-    autoClutch               = false,
+    autoClutch               = true,
     autoShiftingMode         = 0,
     autoShiftingCruise       = true,
-    autoShiftingDownBias     = 0.7,
-    triggerFeedbackL         = 0.0,
-    triggerFeedbackR         = 0.0,
+    autoShiftingDownBias     = 0.9,
+    triggerFeedbackL         = 0.4,
+    triggerFeedbackR         = 0.4,
     triggerFeedbackAlwaysOn  = false,
     useFilter                = true,
     filterSetting            = 0.5,
     steeringRate             = 0.5,
     targetSlip               = 0.95,
-    rateIncreaseWithSpeed    = 0.1,
+    rateIncreaseWithSpeed    = 0.0,
     selfSteerResponse        = 0.37,
     dampingStrength          = 0.37,
-    maxSelfSteerAngle        = 14.0,
+    maxSelfSteerAngle        = 90.0,
     countersteerResponse     = 0.2,
     maxDynamicLimitReduction = 5.0
 }, "AGA_")
 
 -- controls.ini stuff
 
-local gameCfg                  = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "/controls.ini")
+local gameCfg                  = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "\\controls.ini")
 local kbThrottleBind           = ac.KeyIndex.Up
 local kbBrakeBind              = ac.KeyIndex.Down
 local kbSteerLBind             = ac.KeyIndex.Left
@@ -89,8 +95,20 @@ local lastGameDeadzone         = 0
 local lastGameRumble           = 0
 local lastGameCfgSave          = 0
 
+local function onFirstInstall()
+    uiData._gameGamma    = 1.4
+    uiData._gameDeadzone = 0.12
+    uiData._gameRumble   = 0.0
+
+    gameCfg:set("X360", "STEER_GAMMA",      1.4)
+    gameCfg:set("X360", "STEER_DEADZONE",   0.12)
+    gameCfg:set("X360", "RUMBLE_INTENSITY", 0.0)
+
+    gameCfg:save()
+end
+
 local function readGameControls()
-    gameCfg = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "/controls.ini")
+    gameCfg = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "\\controls.ini")
 
     if gameCfg then
         kbThrottleBind = gameCfg:get("KEYBOARD", "GAS",   kbThrottleBind)
@@ -103,12 +121,46 @@ local function readGameControls()
         lastGameRumble   = gameCfg:get("X360", "RUMBLE_INTENSITY", lastGameRumble)
     end
 
-    uiData._gameGamma    = lastGameGamma
-    uiData._gameDeadzone = lastGameDeadzone
-    uiData._gameRumble   = lastGameRumble
+    if firstInstall then
+        firstInstall = false
+        onFirstInstall()
+    else
+        uiData._gameGamma    = lastGameGamma
+        uiData._gameDeadzone = lastGameDeadzone
+        uiData._gameRumble   = lastGameRumble
+    end
 end
 
+ac.onSharedEvent("AGA_factoryReset", function()
+    uiData.assistEnabled            = true
+    uiData.graphSelection           = 1
+    uiData.keyboardMode             = 0
+    -- uiData.mouseSteering            = false
+    uiData.autoClutch               = true
+    uiData.autoShiftingMode         = 0
+    uiData.autoShiftingCruise       = true
+    uiData.autoShiftingDownBias     = 0.9
+    uiData.triggerFeedbackL         = 0.4
+    uiData.triggerFeedbackR         = 0.4
+    uiData.triggerFeedbackAlwaysOn  = false
+    uiData.useFilter                = true
+    uiData.filterSetting            = 0.5
+    uiData.steeringRate             = 0.5
+    uiData.targetSlip               = 0.95
+    uiData.rateIncreaseWithSpeed    = 0.0
+    uiData.selfSteerResponse        = 0.37
+    uiData.dampingStrength          = 0.37
+    uiData.maxSelfSteerAngle        = 90.0
+    uiData.countersteerResponse     = 0.2
+    uiData.maxDynamicLimitReduction = 5.0
+
+    onFirstInstall()
+    ac.broadcastSharedEvent("AGA_reloadControlSettings")
+end)
+
+
 readGameControls()
+
 
 local function setGameCfgValue(section, key, value)
     local currentTime = os.clock()
@@ -187,12 +239,12 @@ local steeringExponent         = 0.95
 -- Updates the config values based on the settings in the UI app
 local function updateConfig()
     if uiData.useFilter then
-        uiData.rateIncreaseWithSpeed    = (1.0 - uiData.filterSetting) * 0.2
+        uiData.rateIncreaseWithSpeed    = (1.0 - uiData.filterSetting) * 0.2 - 0.1
         uiData.selfSteerResponse        = uiData.filterSetting * 0.5 + 0.12
         uiData.dampingStrength          = uiData.selfSteerResponse -- * 0.8
-        uiData.maxSelfSteerAngle        = 28.0 * uiData.filterSetting
+        uiData.maxSelfSteerAngle        = 90.0 --28.0 * uiData.filterSetting
         uiData.maxDynamicLimitReduction = 3 * uiData.filterSetting + 3.5
-        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.4
+        uiData.countersteerResponse     = (1.0 - uiData.filterSetting) * 0.2 + 0.1
         uiData.targetSlip               = 0.95 - ((uiData.filterSetting - 0.5) * 0.04)
     end
 
@@ -660,9 +712,9 @@ local function processInitialInput(vData, kbMode, steeringRateMult, extrasObj, d
 
     -- // TODO detect these in a better way
     local brakeNdUsed        = vData.totalNdSlip
-    local slipSub            = math.lerp(0.3, 0.4, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
+    local slipSub            = math.lerp(0.25, 0.35, lib.clamp01(lib.inverseLerp(40.0, 160.0, vData.localHVelLen * 3.6)))
     local throttleNdUsed     = ((vData.vehicle.tractionType == 1) and vData.frontNdSlip or vData.rearNdSlip) - slipSub
-    extrasObj.brakeNdUsed    = brakeNdUsed
+    extrasObj.brakeNdUsed    = brakeNdUsed + 0.1
     extrasObj.throttleNdUsed = throttleNdUsed
 
     if kbMode > 0 then
@@ -770,7 +822,6 @@ function script.update(dt)
     ac.debug("K) Engine limiter active",              vData.vehicle.isEngineLimiterOn)
     ac.debug("L) Drivertrain power [HP]",             vData.vehicle.drivetrainPower, 0.0, powerGraphLimit)
     ac.debug("M) Extended physics",                   vData.vehicle.extendedPhysics)
-
 end
 
 ac.onControlSettingsChanged(function ()
