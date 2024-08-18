@@ -58,13 +58,15 @@ ___
 
 Adjusts how much slower or faster the steering will get as you speed up. Negative values will make the steering slower with speed, and positive values will make it faster with speed.
 
+Note that even at `0%` the absolute steering speed already becomes slower as you speed up, since it's relative to the available steering range.
+
 ___
 
 ### Target slip angle
 
-Changes what % of relative front slip the steering will target. Higher means more steering, lower means less steering. Most cars feel best around 90-95%, but you can set it higher if you want to force the car over the limit, or if you want more heat in the front tires.
+Changes what % of relative front slip the steering will target. Higher means more steering, lower means less steering. Most cars feel best between 90-100%, but you can set it higher if you want to force the car over the limit, or if you want more heat in the front tires.
 
-Keep in mind that not all cars will adhere to this perfectly, so it's best to verify things via the [Graphs](#graphs) setting.
+Keep in mind that not all cars will adhere to this perfectly, so you might want to verify things via the [Graphs](#graphs) setting.
 
 ___
 
@@ -73,6 +75,8 @@ ___
 Changes how effective it is to countersteer in a slide or drift. A higher setting will make countersteering feel more responsive by allowing you to countersteer more, however, it also makes it easier to overcorrect a slide and spin the other way.
 
 This doesn't apply to the self-steer tendency of the car, only to manual countersteer input.
+
+I recommend keeping it fairly low, below `50%` in most cases.
 
 ___
 
@@ -106,7 +110,7 @@ ___
 
 ### Max angle
 
-Limits the car's self-steer ability. This means that regardless of the [Response](#response) setting, the car's self-steer will not be able to reach a higher steering angle than this. Higher values here will make the self-steer force able to countersteer to a bigger extent.
+Limits the car's self-steer ability. This means that regardless of the [Response](#response) setting, the car's self-steer will not be able to reach a higher steering angle than this. Higher values here will make the self-steer force able to countersteer to a bigger extent and potentially save bigger slides.
 
 ![Max angle](https://i.imgur.com/2kDS7je.gif)
 
@@ -114,13 +118,15 @@ In the GIF above, the player forces the car into a slide then releases the steer
 
 If you enable [Graphs](#graphs), you can see how the self-steer behavior changes as you adjust this setting.
 
-As a sidenote for drifters, if you crank this setting to `90°` and play around with the [Response](#response) setting, you can get the assist to automatically hold a certain drift angle for you, if that's your thing.
+I would usually keep this at `90°`, but small values like `5°` can provide a looser feel that some might like.
+
+For drifting you also might want to set it to `90°` and play around with the [Response](#response) setting, you can get the assist to more or less hold a certain drift angle for you that way, if that's your thing.
 
 ___
 
 ### Damping
 
-The damping force will counteract the car's rotational momentum. This will prevent the self-steer force from overcorrecting and result in a more stable feel. Without damping, the self-steer can make the car wobble (especially high-grip cars at high speed).
+The damping force will counteract the car's rotational momentum. This will prevent the self-steer force from overcorrecting and result in a more stable feel. Without damping, the self-steer can make the car wobble when re-centering (especially high-grip cars at high speed).
 
 ![Damping](https://i.imgur.com/RxFHzgC.gif)
 
@@ -197,9 +203,9 @@ ___
 
 This option utilizes the trigger vibrations in modern Xbox controllers. The sliders determine the strength of the vibration feedback on each trigger.
 
-Left trigger vibrations are sent when experiencing a wheel lockup, and right trigger vibrations are sent when experiencing wheelspin. By default the left and right triggers only vibrate if ABS and TCS are turned off respectively, but the [Trigger feedback with ABS/TCS](#trigger-feedback-with-abstcs) can change this.
+Left trigger vibrations are sent during braking, and right trigger vibrations are sent when accelerating. By default the left and right triggers only vibrate if ABS and TCS are turned off respectively, but the [Trigger feedback with ABS/TCS](#trigger-feedback-with-abstcs) can change this.
 
-The vibration feedback has two steps: a light vibration when approaching the limit, and a stronger vibration when going over the limit.
+The vibrations will start out light as you're approaching the grip limit, and become strong if you exceed it. For example when braking in cars with no ABS, you'd want to modulate the left trigger such that you feel a light vibration the whole time, which means you're using most of the available grip without locking up.
 
 ___
 
@@ -211,7 +217,7 @@ ___
 
 ### Factory reset
 
-Resets every setting to its default value and deletes all presets.
+Resets every setting to its default value, just like having the mod freshly installed (except for saved presets, those are kept).
 
 You have to click it twice to confirm.
 
@@ -229,7 +235,7 @@ ___
 
 Controls AC's own ***Steering deadzone*** setting.
 
-Set it just high enough so that the steering is always centered when you're not touching the stick.
+Set it as low as it can get without causing any unintentional steering inputs when not touching the stick.
 
 ___
 
