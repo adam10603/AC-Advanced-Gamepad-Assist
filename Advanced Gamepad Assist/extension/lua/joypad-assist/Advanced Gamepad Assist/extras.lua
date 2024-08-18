@@ -13,8 +13,8 @@ M.throttleNdUsed     = 0.0
 local maxAllowedUpshiftRPM   = 0.997 -- Automatic upshifts will never occur higher than this, unless upshifting is not possible at the moment
 local maxAllowedDownshiftRPM = 0.99 -- Automatic downshifts will never occur if the predicted RPM in the target gear would be higher than this, and the prediction is based on speed only, so a slightly higher error margin is needed
 local gearOverrideTime       = 1.0
-local autoShiftCheckDelay    = 0.2
-local gearSetCheckDelay      = 0.05 -- Has to be lower than the above
+local autoShiftCheckDelay    = 0.1
+local gearSetCheckDelay      = 0.035 -- Has to be lower than the above
 local wheelSpinThreshold     = 1.1
 local downshiftClutchFadeT   = 0.05
 
@@ -249,23 +249,23 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- ================================ Vibration
 
     if (uiData.triggerFeedbackL > 0.0 or uiData.triggerFeedbackR > 0.0) and vData.localHVelLen > 0.5 then
-        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 3.0)
+        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 4.0)
 
         if xbox ~= nil then
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
-            local wheelspin        = (wheelVelRatio1 > 1.1 or wheelVelRatio2 > 1.1)
+            local wheelspin        = (wheelVelRatio1 > 1.02 or wheelVelRatio2 > 1.02)
             local actualBrakeNd    = wheelspin and 0.0 or M.brakeNdUsed
-            local actualThrottleNd = wheelspin and M.brakeNdUsed or 0.0
+            local actualThrottleNd = wheelspin and M.throttleNdUsed or 0.0
 
             local lVibration = 0.0
             local rVibration = 0.0
 
-            if actualBrakeNd > 0.7 and M.controllerBrake > 0.2 and (vData.vehicle.absMode < 1 or uiData.triggerFeedbackAlwaysOn) then
-                lVibration = (math.lerpInvSat(actualBrakeNd, 0.9, 1.3) * 0.9 + 0.1) * uiData.triggerFeedbackL
+            if actualBrakeNd > 0.5 and M.controllerBrake > 0.2 and (vData.vehicle.absMode < 1 or uiData.triggerFeedbackAlwaysOn) then
+                lVibration = ((math.lerpInvSat(actualBrakeNd, 0.5, 1.0) ^ 4.0) * 0.95 + 0.05) * uiData.triggerFeedbackL
             end
 
-            if actualThrottleNd > 0.7 and M.controllerThrottle > 0.2 and (vData.vehicle.tractionControlMode < 1 or uiData.triggerFeedbackAlwaysOn) then
-                rVibration = (math.lerpInvSat(actualThrottleNd, 0.9, 1.3) * 0.9 + 0.1) * uiData.triggerFeedbackR
+            if actualThrottleNd > 0.5 and M.controllerThrottle > 0.2 and (vData.vehicle.tractionControlMode < 1 or uiData.triggerFeedbackAlwaysOn) then
+                rVibration = ((math.lerpInvSat(actualThrottleNd, 0.5, 1.0) ^ 4.0) * 0.95 + 0.05) * uiData.triggerFeedbackR
             end
 
             xbox.triggerLeft  = lVibration
@@ -406,7 +406,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     end
 
     if #gearData == 0 then
-        gearData = vData.perfData:calcShiftingTable(0.1, maxAllowedUpshiftRPM)
+        gearData = vData.perfData:calcShiftingTable(0.05, maxAllowedUpshiftRPM)
     end
 
     local referenceWheelsGrounded = (referenceWheelData[1].loadK > 0.0 or referenceWheelData[2].loadK > 0.0)
@@ -488,7 +488,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         if canShiftDown and prevRequestedGear == requestedGear then
             -- Finding the best gear to downshift into
             local targetGear = requestedGear
-            local predSpeed = vData.localHVelLen + math.min(smoothGAccel * 9.81, 0.0) * (vData.perfData.shiftDownTime + downshiftClutchFadeT + 0.02)
+            local predSpeed = vData.localHVelLen + math.min(smoothGAccel * 9.81, 0.0) * (vData.perfData.shiftDownTime + 0.0 * (downshiftClutchFadeT + 0.02))
             local absVelPredRPM = getPredictedRPM(predSpeed, vData)
             for g = clampGear(requestedGear - 1, vData), 1, -1 do
                 local refRPM = vData.perfData:getRPMInGear(g, absVelPredRPM)

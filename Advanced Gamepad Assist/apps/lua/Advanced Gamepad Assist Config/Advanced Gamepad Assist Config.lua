@@ -52,7 +52,7 @@ local presetKeys = {
     "maxDynamicLimitReduction",
 }
 
-local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":8,"targetSlip":1,"countersteerResponse":0.4,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.15,"rateIncreaseWithSpeed":0.0,"maxDynamicLimitReduction":6,"steeringRate":0.35},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.4,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
+local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":4,"targetSlip":1,"countersteerResponse":0.3,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.15,"rateIncreaseWithSpeed":0.0,"maxDynamicLimitReduction":6,"steeringRate":0.35},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
 local factoryPresets     = _json.decode(_factoryPresetsStr)
 
 local savedPresets = ac.storage({presets = "{}"}, "AGA_PRESETS_")
@@ -68,10 +68,10 @@ end
 savedPresets.presets = _json.encode(presets)
 
 local tooltips = {
-    factoryReset             = "RESETS EVERY SETTING TO ITS DEFAULT VALUE AND DELETES ALL PRESETS!\nClick twice to confirm!",
+    factoryReset             = "RESETS EVERY SETTING TO ITS DEFAULT VALUE, INCLUDING THE ONES BELOW!\nClick twice to confirm!",
     lockedNote               = "Locked. Uncheck 'Simplified settings' to adjust manually!",
     presets                  = "This is where you can save or load presets!\n\nPresets starting with a * character are factory presets that cannot be changed or deleted.",
-    calibration              = "Calibration happens automatically when the car spawns, but you can do it again here just in case something isn't right.\n\nYou must stop the car before doing this!",
+    calibration              = "Not necessary since calibration happens automatically when the car spawns, but you can do it again from here just in case something isn't right.\n\nYou must stop the car before doing this!",
     graphs                   = "Shows graphs to visualize what the steering assist is doing.\nThey can either be static or updated with live values.",
     assistEnabled            = "Enables or disables the entire assist.\n\nIf unchecked, AC's built-in input processing is used without any change.",
     useFilter                = "Provides a single slider that will adjust most settings automatically for you.",
@@ -79,21 +79,21 @@ local tooltips = {
     autoShiftingMode         = "Default = AC's own gear shifting, no change.\n\nManual = custom rev-matching and clutch logic (if the car allows it), but manual shifting only.\n\nAutomatic = custom rev-matching and clutch logic (if the car allows it), as well as automatic gear shifting. You can still shift manually to override a gear for a short time though.\n\nThe 'Automatic' mode uses a custom algorithm which also takes the engine's power curve into account for optimal shifting points.\n\nIMPORTANT: Options other than 'Default' only work properly if 'Automatic shifting' is DISABLED in AC's assist settings!",
     autoShiftingCruise       = "Allows the automatic shifting to go between cruise mode and performance mode depending on your throttle input.\n\nUseful if you want to do both performance driving and casual cruising, but you can disable it for racing (especially for rolling starts).",
     autoShiftingDownBias     = "Higher = more aggressive downshifting when using automatic mode.\n\nFor example at the maximum setting the car will downshift almost immediately when you brake for a turn, however, this might leave you very close to the top of a gear when going back on the throttle again.",
-    triggerFeedbackL         = "Vibration feedback on the left trigger when braking.\n\nOnly works with compatible Xbox controllers!",
-    triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating.\n\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackL         = "Vibration feedback on the left trigger when braking.\n\nA lighter vibration means you're approaching the grip limit, and a heavy vibration means you're locking up the wheels.\n\nOnly works with compatible Xbox controllers!",
+    triggerFeedbackR         = "Vibration feedback on the right trigger when accelerating.\n\nA lighter vibration means you're approaching the grip limit, and a heavy vibration means you're getting wheelspin.\n\nOnly works with compatible Xbox controllers!",
     triggerFeedbackAlwaysOn  = "Allows trigger vibrations even when TCS or ABS are enabled.",
     keyboardMode             = "Enables gas, brake and steering input on keyboard.\n\nYou can also choose to have brake or gas assistance when ABS or TCS are off. These aren't as good as ABS or TCS, they just try to compensate for not having analog input.\n\nDon't use gas assistance for drifting!\n\nFor every vehicle control to work (like shifting or handbrake), you also have to enable the 'Combine with keyboard' option in the control settings in Content Manager!",
-    filterSetting            = "How much steering assistance you want in general.\n\nNote that 0% does not mean the assist is off, it's just a lower level of assistance.",
+    filterSetting            = "How much steering assistance you want in general.\n\nNote that 0% does not mean the assist is off, it's just a lower level of processing.",
     steeringRate             = "How fast the steering is in general.\n\nA Lower rate will smooth out your steering input more which can help with stability, but going too low can feel unresponsive.\n\nKeyboard steering is generally nicer at a lower rate compared to controller input.",
-    rateIncreaseWithSpeed    = "How much slower or faster the steering gets as you speed up.",
+    rateIncreaseWithSpeed    = "How much slower or faster the steering gets as you speed up.\n\nNote that the actual steering speed will already be slower at high speed even with this at 0%.",
     selfSteerResponse        = "How aggressive the self-steer force will fight to keep the car straight.\n\nLow = looser feel and easier to oversteer, high = more assistance to prevent oversteer and keep the car stable.",
-    dampingStrength          = "This is an advanced setting, and in most cases it's best to leave it at a similar value to 'Response'.\n\nDamping adds some additional self-steer that counteracts the car's yaw rotation which results in more stability.\n\nHigher 'Response' and 'Max angle' settings require more damping to stop the car from wobbling, especially at high speed.\n\nThe damping force is not limited by the 'Max angle' setting.",
-    maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\n\nBasically this limits how big of a slide the self-steer can help to recover from.",
-    targetSlip               = "Changes the slip angle that the front wheels will target, which is simply how much you're steering.\n\nHigher = more steering, lower = less steering.\n\nMost cars feel best around 90-95%, but you can set it higher to scrub the front tires more (to generate more heat for example).",
+    dampingStrength          = "This is an advanced setting, and in most cases it's best to leave it at a similar value to 'Response'.\n\nDamping adds some additional self-steer that counteracts the car's yaw rotation which results in more stability.\n\nIf the car wobbles too much when returning to the center (especially with a high 'Response' setting), you can increase damping to counteract that.\n\nThe damping force is not limited by the 'Max angle' setting.",
+    maxSelfSteerAngle        = "Caps the self-steer force to a certain steering angle.\n\nBasically this limits how big of a slide the self-steer can help to recover from.\n\nI'd recommend 90° in most cases, or a small value like 5° for a looser feel.",
+    targetSlip               = "Changes the slip angle that the front wheels will target, which is simply how much you're steering.\n\nHigher = more steering, lower = less steering.\n\nMost cars feel best between 90%-100%, but you can set it higher to scrub the front tires more (to generate more heat for example).",
     countersteerResponse     = "Higher = more effective countersteering, but also easier to overcorrect a slide and spin the other way if you're not careful.\n\nI would generally recommend to keep it under 50%.",
-    maxDynamicLimitReduction = "How much should inward steering be restricted when the car oversteers, in order to maintain front grip.\n\nLow = being able to steer inward more when the car oversteers, meaning the front tires will scrub more if you steer into a slide.\n\nHigh = backing off the steering when the car steps out.",
+    maxDynamicLimitReduction = "How much should inward steering be restricted when the car oversteers, in order to maintain front grip.\n\nLow = being able to steer inward more when the car oversteers, meaning the front tires will scrub more if you steer into a slide.\n\nHigh = the steering backing off more when the car steps out.",
     builtInSettings          = "These directly adjust AC's own settings (just like the Controller Tweaks app), they are just here for convenience.",
-    _gameGamma               = "Controls AC's own 'Steering gamma' setting.\n\nHigher gamma will make your analog stick less sensitive near the center.\n\nI would recommend between 100-200% depending on preference.",
+    _gameGamma               = "Controls AC's own 'Steering gamma' setting.\n\nHigher gamma will make your analog stick less sensitive near the center.\n\nI would recommend around 120-160% depending on preference.",
     _gameDeadzone            = "Controls AC's own 'Steering deadzone' setting.\n\nDeadzone is used to avoid unintended inputs caused by stick-drift.\n\nShould be as low as you can go without causing unintended inputs when not touching the analog stick.",
     _gameRumble              = "Controls AC's own 'Rumble effects' setting."
 }
@@ -421,20 +421,27 @@ local function drawRearSlipBar()
 end
 
 local function enableScript()
-    local iniFile     = "\\joypad_assist.ini"
-    local sectionName = "BASIC"
+    local gamepadFile     = "\\joypad_assist.ini"
+    local gamepadSectionName = "BASIC"
 
     if ac.getPatchVersionCode() >= 2260 then
-        iniFile     = "\\gamepad_fx.ini"
-        sectionName = "JOYPAD_ASSIST"
+        gamepadFile = "\\gamepad_fx.ini"
+        gamepadSectionName = "JOYPAD_ASSIST"
     end
 
-    local gamepadIni = ac.INIConfig.load(ac.getFolder(ac.FolderID.ExtCfgUser) .. iniFile)
-    gamepadIni:set(sectionName, "ENABLED", 1)
-    gamepadIni:set(sectionName, "IMPLEMENTATION", "Advanced Gamepad Assist")
-    gamepadIni:save(ac.getFolder(ac.FolderID.ExtCfgUser) .. iniFile)
+    local gamepadIni  = ac.INIConfig.load(ac.getFolder(ac.FolderID.ExtCfgUser) .. gamepadFile)
+    local controlsIni = ac.INIConfig.load(ac.getFolder(ac.FolderID.Cfg) .. "\\controls.ini")
+
+    gamepadIni:set(gamepadSectionName, "ENABLED", 1)
+    gamepadIni:set(gamepadSectionName, "IMPLEMENTATION", "Advanced Gamepad Assist")
+    gamepadIni:save(ac.getFolder(ac.FolderID.ExtCfgUser) .. gamepadFile)
+
+    controlsIni:set("HEADER", "INPUT_METHOD", "X360")
+    controlsIni:save()
 
     enableClicked = os.clock()
+
+    ac.reloadControlSettings()
 end
 
 local function togglePresetsWindow()
@@ -479,20 +486,19 @@ local function deletePreset(name)
 end
 
 local function factoryReset()
-    presets = _json.decode(_factoryPresetsStr)
-    savedPresets.presets = _factoryPresetsStr
+    -- presets = _json.decode(_factoryPresetsStr)
+    -- savedPresets.presets = _factoryPresetsStr
 
-    -- // TODO use the event instead of setting these by hand here
-    uiData.assistEnabled           = true
-    uiData.autoClutch              = false
-    uiData.autoShiftingMode        = 0
-    uiData.autoShiftingCruise      = true
-    uiData.autoShiftingDownBias    = 0.7
-    uiData.triggerFeedbackL        = 0.0
-    uiData.triggerFeedbackR        = 0.0
-    uiData.triggerFeedbackAlwaysOn = false
-    uiData.graphSelection          = 1
-    uiData.keyboardMode            = 0
+    -- uiData.assistEnabled           = true
+    -- uiData.autoClutch              = false
+    -- uiData.autoShiftingMode        = 0
+    -- uiData.autoShiftingCruise      = true
+    -- uiData.autoShiftingDownBias    = 0.9
+    -- uiData.triggerFeedbackL        = 0.4
+    -- uiData.triggerFeedbackR        = 0.4
+    -- uiData.triggerFeedbackAlwaysOn = false
+    -- uiData.graphSelection          = 1
+    -- uiData.keyboardMode            = 0
 
     loadPreset("Default")
 

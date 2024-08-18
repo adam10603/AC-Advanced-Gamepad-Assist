@@ -1,18 +1,18 @@
 
-If you have the lite (free) version of Content Manager:
+To install the mod:
  - Open the "Advanced Gamepad Assist" folder, and copy the "apps" and "extension" folders.
  - Paste the two folders into your main "assettocorsa" folder.
 
-If you own the full (paid) version of Content Manager:
- - Copy the "Advanced Gamepad Assist" folder inside the "assettocorsa/mods" folder (create the "mods" folder if you don't see it).
- - Open Content Manager, go to Content on the upper right, then to Mods on the upper left.
- - Make sure that Advanced Gamepad Assist is enabled (should be on the right side).
+(Optionally, if you have the full / paid version of Content Manager and you know how to use the mods folder, you can install it there instead too.)
 
 Once you've installed the assist, you have to make sure it's active:
  - Open Content Manager, go to Settings on the upper right, then Custom Shaders Patch on the upper left, and Gamepad FX on the left.
- - Make sure Active is checked, and select the Advanced Gamepad Assist script.
+ - Make sure Active is checked under Gamepad Script, and select the Advanced Gamepad Assist script.
+ - Now go to Settings again, Assetto Corsa on the upper left, then Controls on the left.
+ - Here make sure the Input Method is set to Gamepad.
 
-If you want to adjust the steering feel, add the UI app called Advanced Gamepad Assist Config from the side menu in-game!
+If you want to adjust the steering feel and other features, add the UI app called Advanced Gamepad Assist Config from the side menu in-game!
 
-For more info on using and configuring the assist, visit the project's Github page:
+For more info on using and configuring the assist, refer to these pages:
+https://www.overtake.gg/downloads/advanced-gamepad-assist.62485/
 https://github.com/adam10603/AC-Advanced-Gamepad-Assist
