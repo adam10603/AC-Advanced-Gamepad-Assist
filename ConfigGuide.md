@@ -207,6 +207,8 @@ Left trigger vibrations are sent during braking, and right trigger vibrations ar
 
 The vibrations will start out light as you're approaching the grip limit, and become strong if you exceed it. For example when braking in cars with no ABS, you'd want to modulate the left trigger such that you feel a light vibration the whole time, which means you're using most of the available grip without locking up.
 
+In order for trigger vibrations to work, you might have to disable Steam input! You can do this if you right click AC in Steam, then go to ***Properties***, ***Controller***.
+
 ___
 
 ### Trigger feedback with ABS/TCS
