@@ -53,6 +53,8 @@ When it comes to AC's built-in steering settings, you don't need to worry about 
 
 If you want to drive on keyboard, set up the binds for it in AC's control settings, then set the ***Input method*** to ***Gamepad*** and check the ***Combine with keyboard*** option. You'll also have to enable keyboard input in the in-game UI app.
 
+If you want to use trigger vibration (and your controller supports it), you might have to disable Steam input. You can do this if you right click AC in Steam, then go to ***Properties***, ***Controller***.
+
 When the mod is installed and used for the first time, it automatically sets some of AC's steering settings to reasonable defaults. Specifically, it sets the steering gamma to 140%, deadzone to 12%, and rumble effects to 0%. Of course you can tweak these settings any time from the UI app, these defaults are just there for a good out-of-the-box experience that should work for most people.
 
 ## 🎮 Usage
