@@ -48,7 +48,11 @@ local uiData = ac.connect{
     dampingStrength          = ac.StructItem.double(),
     maxSelfSteerAngle        = ac.StructItem.double(),
     countersteerResponse     = ac.StructItem.double(),
-    maxDynamicLimitReduction = ac.StructItem.double() -- Stores 10x the value for legacy reasons
+    maxDynamicLimitReduction = ac.StructItem.double(), -- Stores 10x the value for legacy reasons
+    gasLowerLimit            = ac.StructItem.double(),
+    gasUpperLimit            = ac.StructItem.double(),
+    brakeLowerLimit          = ac.StructItem.double(),
+    brakeUpperLimit          = ac.StructItem.double(),
 }
 
 local firstInstall = false -- Set to true on the very first boot after installing the assist
@@ -79,7 +83,11 @@ local savedCfg = ac.storage({
     dampingStrength          = 0.37,
     maxSelfSteerAngle        = 90.0,
     countersteerResponse     = 0.2,
-    maxDynamicLimitReduction = 5.0
+    maxDynamicLimitReduction = 5.0,
+    gasLowerLimit            = 0.05,
+    gasUpperLimit            = 0.95,
+    brakeLowerLimit          = 0.05,
+    brakeUpperLimit          = 0.95,
 }, "AGA_")
 
 -- controls.ini stuff
@@ -153,6 +161,10 @@ ac.onSharedEvent("AGA_factoryReset", function()
     uiData.maxSelfSteerAngle        = 90.0
     uiData.countersteerResponse     = 0.2
     uiData.maxDynamicLimitReduction = 5.0
+    uiData.gasLowerLimit            = 0.05
+    uiData.gasUpperLimit            = 0.95
+    uiData.brakeLowerLimit          = 0.05
+    uiData.brakeUpperLimit          = 0.95
 
     onFirstInstall()
     ac.broadcastSharedEvent("AGA_reloadControlSettings")
@@ -197,6 +209,10 @@ uiData.dampingStrength          = savedCfg.dampingStrength
 uiData.maxSelfSteerAngle        = savedCfg.maxSelfSteerAngle
 uiData.countersteerResponse     = savedCfg.countersteerResponse
 uiData.maxDynamicLimitReduction = savedCfg.maxDynamicLimitReduction
+uiData.gasLowerLimit            = savedCfg.gasLowerLimit
+uiData.gasUpperLimit            = savedCfg.gasUpperLimit
+uiData.brakeLowerLimit          = savedCfg.brakeLowerLimit
+uiData.brakeUpperLimit          = savedCfg.brakeUpperLimit
 
 -- MAIN LOGIC =================================================================================
 
@@ -269,6 +285,10 @@ local function updateConfig()
     savedCfg.maxSelfSteerAngle        = uiData.maxSelfSteerAngle
     savedCfg.countersteerResponse     = uiData.countersteerResponse
     savedCfg.maxDynamicLimitReduction = uiData.maxDynamicLimitReduction
+    savedCfg.gasLowerLimit            = uiData.gasLowerLimit
+    savedCfg.gasUpperLimit            = uiData.gasUpperLimit
+    savedCfg.brakeLowerLimit          = uiData.brakeLowerLimit
+    savedCfg.brakeUpperLimit          = uiData.brakeUpperLimit
 
     if math.abs(lastGameGamma - uiData._gameGamma) > 1e-6 then
         if setGameCfgValue("X360", "STEER_GAMMA", uiData._gameGamma) then
@@ -788,6 +808,9 @@ function script.update(dt)
 
         desiredSteering         = math.lerp(initialSteering, processedSteering, assistFadeIn)
         vData.inputData.steer   = sanitizeSteeringInput(normalizedSteeringToInput(desiredSteering, vData.steeringCurveExponent)) -- Final steering input sent to the car
+
+        vData.inputData.gas     = lib.clamp01(lib.inverseLerp(uiData.gasLowerLimit, uiData.gasUpperLimit, vData.inputData.gas))
+        vData.inputData.brake   = lib.clamp01(lib.inverseLerp(uiData.brakeLowerLimit, uiData.brakeUpperLimit, vData.inputData.brake))
 
         extras.update(vData, uiData, absInitialSteering, dt) -- Updating extra functionality like auto clutch etc.
     end

@@ -35,7 +35,11 @@ local uiData = ac.connect{
     dampingStrength          = ac.StructItem.double(),
     maxSelfSteerAngle        = ac.StructItem.double(),
     countersteerResponse     = ac.StructItem.double(),
-    maxDynamicLimitReduction = ac.StructItem.double()
+    maxDynamicLimitReduction = ac.StructItem.double(),
+    gasLowerLimit            = ac.StructItem.double(),
+    gasUpperLimit            = ac.StructItem.double(),
+    brakeLowerLimit          = ac.StructItem.double(),
+    brakeUpperLimit          = ac.StructItem.double(),
 }
 
 -- Keys that are stored in a preset
@@ -50,6 +54,10 @@ local presetKeys = {
     "maxSelfSteerAngle",
     "countersteerResponse",
     "maxDynamicLimitReduction",
+    "gasLowerLimit",
+    "gasUpperLimit",
+    "brakeLowerLimit",
+    "brakeUpperLimit",
 }
 
 local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":4,"targetSlip":1,"countersteerResponse":0.3,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.15,"rateIncreaseWithSpeed":0.0,"maxDynamicLimitReduction":6,"steeringRate":0.35},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
@@ -742,6 +750,12 @@ function script.windowSettings(dt)
     showConfigSlider("_gameGamma",    "Gamma", "   %.f%%", 100.0, 300.0, 100.0, false, 200.0, 0)
     showConfigSlider("_gameDeadzone", "Deadzone", "%.f%%",   0.0, 100.0, 100.0, false, 200.0, 0)
     showConfigSlider("_gameRumble",   "Rumble",   "%.f%%",   0.0, 100.0, 100.0, false, 200.0, 0)
+
+    showHeader("Gas/brake input:")
+    showConfigSlider("gasLowerLimit", "Gas lower limit", "%.1f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+    showConfigSlider("gasUpperLimit", "Gas upper limit", "%.1f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+    showConfigSlider("brakeLowerLimit", "Brake lower limi", "%.1f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
+    showConfigSlider("brakeUpperLimit", "Brake upper limit", "%.1f%%", 0.0, 100.0, 100.0, false, 200.0, 0)
 
     popStyle()
 end
