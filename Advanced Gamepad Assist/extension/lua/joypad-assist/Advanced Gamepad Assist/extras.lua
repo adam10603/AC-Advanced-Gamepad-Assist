@@ -53,7 +53,7 @@ local clutchSampleTimer      = 0.0
 local canUseClutch           = true
 local clutchSampled          = false
 
-local gearData = {} -- Contains gear change RPMs for each gear except last
+local gearData = {} -- Shifting table for the automatic mode
 
 local function sanitize01Input(value)
     return lib.numberGuard(math.clamp(value, 0, 1))
@@ -532,7 +532,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         end
 
         if lastShiftWasDown then
-            clutchFadeT = math.clamp(clutchFadeT, 0.05, 0.2)
+            clutchFadeT = math.clamp(clutchFadeT, 0.05, 0.15)
         end
 
         local baseClutchT = (clutchFadeT ~= 0.0) and lib.clamp01(tSinceShiftOver / clutchFadeT) or 1.0
@@ -560,5 +560,9 @@ ac.onCarJumped(car.index, function (carID)
     errorShown3 = false -- Show this one more often
     gearData = {}
 end)
+
+M.clearGearData = function()
+    gearData = {}
+end
 
 return M

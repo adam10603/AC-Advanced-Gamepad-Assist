@@ -243,7 +243,7 @@ function M:calcShiftingTable(minNormRPM, maxNormRPM)
     end
 
     -- Setting first and last by hand
-    gearData[1].gearStartRPM = (self:getGearRatio(2) / self:getGearRatio(1)) * gearData[2].gearStartRPM
+    gearData[1].gearStartRPM = math.max((self:getGearRatio(2) / self:getGearRatio(1)) * gearData[2].gearStartRPM, self.idleRPM)
     gearData[self.vehicle.gearCount] = {
         upshiftRPM = 9999999,
         gearStartRPM = gearData[self.vehicle.gearCount - 1].upshiftRPM * self:getGearRatio(self.vehicle.gearCount) / self:getGearRatio(self.vehicle.gearCount - 1)
