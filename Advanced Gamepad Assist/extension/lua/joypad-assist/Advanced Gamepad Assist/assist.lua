@@ -532,6 +532,7 @@ local function getVehicleData(dt, skipCalibration)
 
     if not storedCarPerformanceData or updateGearSetHash(vehicle, cPhys) then
         storedCarPerformanceData = CarPerformanceData:new(vehicle)
+        extras.clearGearData()
     end
 
     return {
