@@ -77,11 +77,17 @@ function M:new(vehicle)
 
     -- Reading drivetrain data
 
-    local drivetrainINI  = ac.INIConfig.carData(vehicle.index, "drivetrain.ini")
-    local shiftUpTime    = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
-    local shiftDownTime  = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
-    local defaultShiftUp = drivetrainINI:get("AUTO_SHIFTER", "UP", math.lerp(idleRPM, maxRPM, 0.7))
-    local electronicBlip = drivetrainINI:get("AUTOBLIP", "ELECTRONIC", 0)
+    local drivetrainINI        = ac.INIConfig.carData(vehicle.index, "drivetrain.ini")
+    local shiftUpTime          = drivetrainINI:get("GEARBOX", "CHANGE_UP_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
+    local shiftDownTime        = drivetrainINI:get("GEARBOX", "CHANGE_DN_TIME", vehicle.hShifter and 300 or 50) / 1000.0 -- Converted from ms to s
+    local defaultShiftUp       = drivetrainINI:get("AUTO_SHIFTER", "UP", math.lerp(idleRPM, maxRPM, 0.7))
+    local electronicBlip       = drivetrainINI:get("AUTOBLIP", "ELECTRONIC", 0)
+    local upshiftPoint1        = drivetrainINI:get("UPSHIFT_PROFILE", "POINT_1", 0) / 1000.0
+    local upshiftPoint2        = drivetrainINI:get("UPSHIFT_PROFILE", "POINT_2", 0) / 1000.0
+    local downshiftPoint1      = drivetrainINI:get("DOWNSHIFT_PROFILE", "POINT_1", 0) / 1000.0
+    local downshiftPoint2      = drivetrainINI:get("DOWNSHIFT_PROFILE", "POINT_2", 0) / 1000.0
+    local upshiftClutchFadeT   = (upshiftPoint1 ~= 0 and upshiftPoint2 ~= 0) and (upshiftPoint2 - upshiftPoint1) or 0
+    local downshiftClutchFadeT = (downshiftPoint1 ~= 0 and downshiftPoint2 ~= 0) and (downshiftPoint2 - downshiftPoint1) or 0
 
     local cPhys          = ac.getCarPhysics(vehicle.index)
     local tiresINI       = ac.INIConfig.carData(car.index, "tyres.ini")
@@ -100,6 +106,8 @@ function M:new(vehicle)
         shiftDownTime                   = shiftDownTime,
         defaultShiftUpRPM               = defaultShiftUp,
         electronicBlip                  = electronicBlip,
+        upshiftClutchFadeT              = upshiftClutchFadeT,
+        downshiftClutchFadeT            = downshiftClutchFadeT,
         gearRatios                      = table.clone(cPhys.gearRatios, true),
         finalDrive                      = cPhys.finalRatio,
         tiresINI                        = tiresINI,

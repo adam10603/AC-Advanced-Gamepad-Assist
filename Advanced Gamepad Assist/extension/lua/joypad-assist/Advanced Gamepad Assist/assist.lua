@@ -482,6 +482,7 @@ local function updateGearSetHash(vehicle, cPhys)
     end
 
     currentGearSetHash = currentGearSetHash + cPhys.finalRatio * 1024
+    currentGearSetHash = currentGearSetHash + vehicle.rpmLimiter
 
     local ret = (currentGearSetHash ~= prevGearSetHash)
 
@@ -510,6 +511,8 @@ local function getVehicleData(dt, skipCalibration)
     local rWheelWeights   = {lib.zeroGuard(vehicle.wheels[2].load), lib.zeroGuard(vehicle.wheels[3].load)}
     local allWheelWeights = {fWheelWeights[1], fWheelWeights[2], rWheelWeights[1], rWheelWeights[2]}
 
+    local wheelbase       = math.abs(fAxlePos.z - rAxlePos.z)
+
     -- Updating local wheel velocities
     for i = 0, 3 do
         lib.getPointVelocity(localWheelPositions[i], vehicle.localAngularVelocity, vehicle.localVelocity, storedLocalWheelVel[i])
@@ -529,6 +532,8 @@ local function getVehicleData(dt, skipCalibration)
     return {
         inputData             = inputData, -- ac.getJoypadState()
         vehicle               = vehicle, -- ac.getCar(0)
+        wheelbase             = wheelbase,
+        wheelbaseFactor       = wheelbase / 2.5,
         inverseBodyTransform  = inverseBodyTransform, -- Used for converting points or vectors from global space to local space
         localVel              = storedMiddleVel, -- Local velocity vector of the vehicle at the average position of all 4 wheels
         localHVelLen          = math.sqrt(storedMiddleVel.x * storedMiddleVel.x + storedMiddleVel.z * storedMiddleVel.z), -- Velocity magnitude of the vehicle on the local horizontal plane (m/s)
@@ -568,21 +573,20 @@ local function calcSteeringRateMult(fwdVelClamped, steeringLockDeg)
 end
 
 -- Returns the corrected sterering angle with the steering limit and self-steer force applied, normalized to the car's steering lock
-local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, dt)
+local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering, absInitialSteering, assistFadeIn, dt)
     -- Calculating baseline data
 
     local fAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.fAxleLocalVel.x, math.abs(vData.fAxleLocalVel.z)))) -- Angle of the front axle velocity on the local horizontal plane, corrected for reverse (deg)
     local rAxleHVelAngle       = lib.numberGuard(math.deg(math.atan2(vData.rAxleLocalVel.x, math.abs(vData.rAxleLocalVel.z)))) -- Angle of the rear axle velocity on the local horizontal plane, corrected for reverse (deg)
     local inputSign            = math.sign(initialSteering) -- Sign of the initial steering input by the player (after smoothing)
-    local lowSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (35.0 / 3.6)) -- Used for fading some effects at low speed
-    local midSpeedFade         = lib.clamp01(math.max(0.0, vData.localHVelLen - 0.5) / (60.0 / 3.6)) -- Used for fading some effects at medium speed
+    local midSpeedFade         = math.lerpInvSat(vData.localHVelLen, 10.0 * vData.wheelbaseFactor, 20.0 * vData.wheelbaseFactor) -- Used for fading some effects at medium speed
 
     -- Self-steer force
 
     local correctionExponent  = 1.0 + (1.0 - math.log10(10.0 * (uiData.selfSteerResponse * 0.9 + 0.1))) -- This is just to make `cfg.selfSteerResponse` scale in a better way
     local correctionBase      = lib.signedPow(math.clamp(-rAxleHVelAngle / 72.0, -1, 1), correctionExponent) * 72.0 / vData.steeringLockDeg -- Base self-steer force
     local selfSteerCap        = lib.clamp01(uiData.maxSelfSteerAngle / vData.steeringLockDeg) -- Max self-steer amount
-    local selfSteerStrength   = lowSpeedFade * vData.frontGrounded -- Multiplier that can fade the self-steer force in and out
+    local selfSteerStrength   = vData.frontGrounded * assistFadeIn -- Multiplier that can fade the self-steer force in and out
     local dampingForce        = vData.localAngularVel.y * uiData.dampingStrength * 0.15 * (30.0 / vData.steeringLockDeg) -- 0.2125 * 0.6 = 0.1275 -- 0.159375
     local selfSteerCapT       = math.min(1.0, 4.0 / (2.0 * selfSteerCap)) -- Easing window
     local rawSelfSteer        = lib.clampEased(correctionBase, -selfSteerCap, selfSteerCap, selfSteerCapT) + dampingForce
@@ -601,8 +605,9 @@ local function calcCorrectedSteering(vData, targetFrontSlipDeg, initialSteering,
     end
 
     local isCountersteering   = (inputSign ~= math.sign(lib.zeroGuard(vData.rAxleLocalVel.x)) and math.abs(initialSteering) > 1e-6) -- Boolean to indicate if the player is countersteering
-    local rawCounterIndicator = isCountersteering and lib.inverseLerpClampedEased(4.5, 9.5, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0 -- Countersteer factor before smoothing
-    local counterIndicator    = counterIndicatorSmoother:getWithRateMult(rawCounterIndicator, dt, rawCounterIndicator < counterIndicatorSmoother.state and 0.5 or 1.0) * midSpeedFade -- Final 0-1 multiplier to indicate if the player is countersteering
+    local rawCounterIndicator = isCountersteering and lib.inverseLerpClampedEased(4.5, 10.0, math.abs(rAxleHVelAngle), 0.0, 1.0, 0.6) or 0.0 -- Countersteer factor before smoothing
+    local returnRate          = math.lerp(0.8, 0.3, math.lerpInvSat(math.abs(fAxleHVelAngle - rAxleHVelAngle), 2.0, 10.0))
+    local counterIndicator    = counterIndicatorSmoother:getWithRateMult(rawCounterIndicator, dt, rawCounterIndicator < counterIndicatorSmoother.state and returnRate or 1.0) * midSpeedFade -- Final 0-1 multiplier to indicate if the player is countersteering
 
     local antiSelfSteer       = absInitialSteering * -selfSteerForce -- This prevents the self-steer force from affecting the steering limit
     local targetInward        = finalTargetSlip - clampedFAxleVelAngle -- Steering limit when turning inward
@@ -783,8 +788,8 @@ function script.update(dt)
 
         vData.perfData:updateTargetFrontSlipAngle(vData, initialSteering, dt)
 
-        assistFadeIn            = math.lerpInvSat(vData.fAxleHVelLen, 2.0, 6.0)
-        local processedSteering = calcCorrectedSteering(vData, vData.perfData:getTargetFrontSlipAngle(), initialSteering, absInitialSteering, dt)
+        assistFadeIn            = math.lerpInvSat(vData.fAxleHVelLen, 2.0 * vData.wheelbaseFactor, 6.0 * vData.wheelbaseFactor)
+        local processedSteering = calcCorrectedSteering(vData, vData.perfData:getTargetFrontSlipAngle(), initialSteering, absInitialSteering, assistFadeIn, dt)
 
         desiredSteering         = math.lerp(initialSteering, processedSteering, assistFadeIn)
         vData.inputData.steer   = sanitizeSteeringInput(normalizedSteeringToInput(desiredSteering, vData.steeringCurveExponent)) -- Final steering input sent to the car
