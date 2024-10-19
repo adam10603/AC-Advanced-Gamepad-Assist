@@ -657,7 +657,7 @@ function script.windowMain(dt)
 
     showConfigSlider("steeringRate",             "Steering rate",          "%.f%%",    0.0, 100.0, 100.0)
     showConfigSlider("rateIncreaseWithSpeed",    "Steering rate at speed", "%+.f%%", -50.0,  50.0, 100.0, uiData.useFilter)
-    showConfigSlider("targetSlip",               "Target slip angle",      "%.1f%%",  90.0, 300.0, 100.0, uiData.useFilter)
+    showConfigSlider("targetSlip",               "Target slip angle",      "%.1f%%",  90.0, 120.0, 100.0, uiData.useFilter)
     showConfigSlider("countersteerResponse",     "Countersteer response",  "%.f%%",    0.0, 100.0, 100.0, uiData.useFilter)
     showConfigSlider("maxDynamicLimitReduction", "Dynamic steering limit", "%.f%%",    0.0, 100.0,  10.0, uiData.useFilter)
 
