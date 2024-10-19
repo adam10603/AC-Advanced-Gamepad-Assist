@@ -138,7 +138,7 @@ Note that since v1.4 this setting makes less of a difference, but the GIF still 
 
 Click the gear icon ⚙️ at the top of the UI app to access additional features.
 
-![UI app settings](https://i.imgur.com/Fy7ZHoC.png)
+![UI app settings](https://i.imgur.com/JOnGtWD.png)
 
 ### Graphs
 
@@ -167,6 +167,14 @@ Brake assistance only works if ABS is off, and throttle assistance only works if
 These additional assists are similar to what AC would also do to keyboard input by default. They are not as effective as actual ABS or TCS, but that's by design. Since you can use these in cars that have no ABS or TCS, it would be unfair if they were as good as those systems. The goal of these is just to more or less compensate for not having analog brake or throttle on keyboard.
 
 Also, seering input on keyboard will have a bit more smoothing compared to controller steering.
+
+___
+
+### Photo mode
+
+Allows you to leave the front wheels turned while the car is parked, by disabling re-centering.
+
+Can be useful for taking screenshots for example.
 
 ___
 
