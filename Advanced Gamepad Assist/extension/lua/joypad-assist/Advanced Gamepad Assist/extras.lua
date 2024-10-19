@@ -16,7 +16,6 @@ local gearOverrideTime       = 1.0
 local autoShiftCheckDelay    = 0.1
 local gearSetCheckDelay      = 0.035 -- Has to be lower than the above
 local wheelSpinThreshold     = 1.1
-local downshiftClutchFadeT   = 0.05
 
 -- State
 local autoClutchRaw          = false
@@ -39,7 +38,7 @@ local revMatchController     = lib.PIDController:new(6.0, 3.0, 0.0, false, 0.0, 
 
 local tSinceUpshift          = 0.0
 local tSinceDownshift        = 0.0
-local tSinceDownshiftOver    = 999
+local tSinceShiftOver        = 999
 local requestedGear          = 0 -- The target gear that the script will attempt to shift into
 
 local gearOverride           = nil -- Automatic shifting will not happen while this object exists
@@ -249,7 +248,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- ================================ Vibration
 
     if (uiData.triggerFeedbackL > 0.0 or uiData.triggerFeedbackR > 0.0) and vData.localHVelLen > 0.5 then
-        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 4.0)
+        local xbox = ac.setXbox(vData.inputData.gamepadIndex, 1000, dt * 3.0)
 
         if xbox ~= nil then
             -- Checking wheel velocity ratios to avoid vibrating both triggers at the same time
@@ -261,11 +260,11 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             local rVibration = 0.0
 
             if actualBrakeNd > 0.5 and M.controllerBrake > 0.2 and (vData.vehicle.absMode < 1 or uiData.triggerFeedbackAlwaysOn) then
-                lVibration = ((math.lerpInvSat(actualBrakeNd, 0.5, 1.0) ^ 4.0) * 0.95 + 0.05) * uiData.triggerFeedbackL
+                lVibration = ((math.lerpInvSat(actualBrakeNd, 0.5, 1.0) ^ 4.0) * 0.9 + 0.1) * uiData.triggerFeedbackL
             end
 
             if actualThrottleNd > 0.5 and M.controllerThrottle > 0.2 and (vData.vehicle.tractionControlMode < 1 or uiData.triggerFeedbackAlwaysOn) then
-                rVibration = ((math.lerpInvSat(actualThrottleNd, 0.5, 1.0) ^ 4.0) * 0.95 + 0.05) * uiData.triggerFeedbackR
+                rVibration = ((math.lerpInvSat(actualThrottleNd, 0.5, 1.0) ^ 4.0) * 0.9 + 0.1) * uiData.triggerFeedbackR
             end
 
             xbox.triggerLeft  = lVibration
@@ -465,7 +464,8 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             canShiftDown = (tSinceUpshift > 0.7 or vData.inputData.brake > 0.2) and tSinceDownshift > (vData.perfData.shiftDownTime + autoShiftCheckDelay) and not avoidDownshift and referenceWheelsGrounded and not ((driftingProbably or burnoutRaw) and normalizedRPM > 0.5) and (vData.vehicle.clutch > 0.999 or safeSpeedElapsed > 1.0 or tSinceHighGearBurnoutStopped < ((vData.vehicle.gearCount - 1) * (vData.perfData.shiftDownTime + autoShiftCheckDelay + 0.05)))
         end
 
-        local clampedBias       = math.max(0.1, uiData.autoShiftingDownBias) -- this is because of a recent change to have a minimum value of 10%, but saved settings might still have it lower
+        local minBiasMult       = math.lerp(0.8, 0.7, lib.clamp01(lib.inverseLerp(0.025, 0.25, vData.perfData.shiftDownTime)))
+        local clampedBias       = math.max(0.1, math.lerp(minBiasMult, 1.0, math.lerpInvSat(vData.vehicle.gear, 2, vData.vehicle.gearCount)) * uiData.autoShiftingDownBias) -- clamping it because of a change to have a minimum value of 10%, but saved settings might still have it lower
         local downshiftBiasUsed = math.lerp(clampedBias, clampedBias * 0.6, (lib.clamp01(lib.inverseLerp(0.05, 0.5, vData.inputData.gas)) - lib.clamp01(lib.inverseLerp(0.05, 0.5, vData.inputData.brake))) * 0.5 + 0.5)
         local absDownshiftLimit = vData.perfData:getAbsoluteRPM(maxAllowedDownshiftRPM)
         local minAllowedRPM     = vData.perfData:getAbsoluteRPM(0.01)
@@ -488,7 +488,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         if canShiftDown and prevRequestedGear == requestedGear then
             -- Finding the best gear to downshift into
             local targetGear = requestedGear
-            local predSpeed = vData.localHVelLen + math.min(smoothGAccel * 9.81, 0.0) * (vData.perfData.shiftDownTime + 0.0 * (downshiftClutchFadeT + 0.02))
+            local predSpeed = vData.localHVelLen + math.min(smoothGAccel * 9.81, 0.0) * (vData.perfData.shiftDownTime + 0.05)
             local absVelPredRPM = getPredictedRPM(predSpeed, vData)
             for g = clampGear(requestedGear - 1, vData), 1, -1 do
                 local refRPM = vData.perfData:getRPMInGear(g, absVelPredRPM)
@@ -504,9 +504,11 @@ M.update = function(vData, uiData, absInitialSteering, dt)
     -- Requesting the desired gear
     requestGear(vData, dt)
 
+    local lastShiftWasDown = (tSinceDownshift < tSinceUpshift)
+
     local function getRevMatchedGasInput()
         if not (gearOverride and not canUseClutch and vData.perfData.electronicBlip == 1) then
-            local targetAdjustment = 0.98
+            local targetAdjustment = lastShiftWasDown and 0.98 or 1.0
             local targetNormalizedRPM = math.clamp(vData.perfData:getNormalizedRPM(getPredictedRPM(relevantSpeed, vData, vData.perfData:getDrivetrainRatio(requestedGear))) * targetAdjustment, 0.0, 0.98)
             revMatchController:setSetpoint(targetNormalizedRPM)
             return revMatchController:get(normalizedRPM, dt)
@@ -514,20 +516,29 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         return vData.inputData.gas
     end
 
-
     -- Dealing with clutch and rev-matching
     if (tSinceUpshift < vData.perfData.shiftUpTime or tSinceDownshift < vData.perfData.shiftDownTime) and vData.inputData.clutch > 0.999 then
-        if tSinceDownshift < tSinceUpshift then tSinceDownshiftOver = 0.0 else tSinceDownshiftOver = 999.0 end
+        tSinceShiftOver        = 0.0
         vData.inputData.clutch = 0.0
-        vData.inputData.gas = getRevMatchedGasInput()
+        vData.inputData.gas    = getRevMatchedGasInput()
     else
-        tSinceDownshiftOver = tSinceDownshiftOver + dt
-        local baseClutchT = lib.clamp01(tSinceDownshiftOver / downshiftClutchFadeT)
+        tSinceShiftOver = tSinceShiftOver + dt
+
+        local clutchFadeT = 0.0
+        if ((not lastShiftWasDown) and vData.perfData.upshiftClutchFadeT ~= 0.0) then
+            clutchFadeT = vData.perfData.upshiftClutchFadeT
+        elseif (lastShiftWasDown and vData.perfData.downshiftClutchFadeT ~= 0.0) then
+            clutchFadeT = math.clamp(vData.perfData.downshiftClutchFadeT, 0.05, 0.2)
+        end
+
+        local baseClutchT = (clutchFadeT ~= 0.0) and lib.clamp01(tSinceShiftOver / clutchFadeT) or 1.0
+
         if baseClutchT > 0.999 then
             revMatchController:reset()
         else
-            vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, baseClutchT ^ 2.0)
-            vData.inputData.gas = math.lerp(getRevMatchedGasInput(), vData.inputData.gas, baseClutchT)
+            local revMatchInput    = getRevMatchedGasInput()
+            vData.inputData.clutch = math.lerp(0.0, vData.inputData.clutch, baseClutchT)
+            vData.inputData.gas    = lastShiftWasDown and math.lerp(revMatchInput, vData.inputData.gas, baseClutchT) or revMatchInput
         end
     end
 end
