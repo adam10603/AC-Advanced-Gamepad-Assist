@@ -464,7 +464,7 @@ M.update = function(vData, uiData, absInitialSteering, dt)
             canShiftDown = (tSinceUpshift > 0.7 or vData.inputData.brake > 0.2) and tSinceDownshift > (vData.perfData.shiftDownTime + autoShiftCheckDelay) and not avoidDownshift and referenceWheelsGrounded and not ((driftingProbably or burnoutRaw) and normalizedRPM > 0.5) and (vData.vehicle.clutch > 0.999 or safeSpeedElapsed > 1.0 or tSinceHighGearBurnoutStopped < ((vData.vehicle.gearCount - 1) * (vData.perfData.shiftDownTime + autoShiftCheckDelay + 0.05)))
         end
 
-        local minBiasMult       = math.lerp(0.8, 0.7, lib.clamp01(lib.inverseLerp(0.025, 0.25, vData.perfData.shiftDownTime)))
+        local minBiasMult       = math.lerp(0.8, 0.65, lib.clamp01(lib.inverseLerp(0.025, 0.25, vData.perfData.shiftDownTime)))
         local clampedBias       = math.max(0.1, math.lerp(minBiasMult, 1.0, math.lerpInvSat(vData.vehicle.gear, 2, vData.vehicle.gearCount)) * uiData.autoShiftingDownBias) -- clamping it because of a change to have a minimum value of 10%, but saved settings might still have it lower
         local downshiftBiasUsed = math.lerp(clampedBias, clampedBias * 0.6, (lib.clamp01(lib.inverseLerp(0.05, 0.5, vData.inputData.gas)) - lib.clamp01(lib.inverseLerp(0.05, 0.5, vData.inputData.brake))) * 0.5 + 0.5)
         local absDownshiftLimit = vData.perfData:getAbsoluteRPM(maxAllowedDownshiftRPM)
