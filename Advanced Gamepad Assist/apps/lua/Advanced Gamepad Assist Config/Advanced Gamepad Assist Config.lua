@@ -52,7 +52,7 @@ local presetKeys = {
     "maxDynamicLimitReduction",
 }
 
-local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":4,"targetSlip":1,"countersteerResponse":0.3,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.15,"rateIncreaseWithSpeed":0.0,"maxDynamicLimitReduction":6,"steeringRate":0.35},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
+local _factoryPresetsStr = '{"Loose":{"dampingStrength":0.3,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.3,"maxSelfSteerAngle":4,"targetSlip":1,"countersteerResponse":0.3,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4.5,"steeringRate":0.5},"Default":{"dampingStrength":0.37,"filterSetting":0.5,"useFilter":true,"selfSteerResponse":0.37,"maxSelfSteerAngle":14,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":5,"steeringRate":0.5},"Stable":{"dampingStrength":0.75,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.65,"maxSelfSteerAngle":90,"targetSlip":0.93,"countersteerResponse":0.15,"rateIncreaseWithSpeed":0.0,"maxDynamicLimitReduction":6,"steeringRate":0.35},"Drift":{"dampingStrength":0.5,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":1,"countersteerResponse":0.5,"rateIncreaseWithSpeed":0.1,"maxDynamicLimitReduction":4,"steeringRate":0.4},"Author\'s preference":{"dampingStrength":0.4,"filterSetting":0.5,"useFilter":false,"selfSteerResponse":0.35,"maxSelfSteerAngle":90,"targetSlip":0.95,"countersteerResponse":0.2,"rateIncreaseWithSpeed":0,"maxDynamicLimitReduction":5,"steeringRate":0.5}}'
 local factoryPresets     = _json.decode(_factoryPresetsStr)
 
 local savedPresets = ac.storage({presets = "{}"}, "AGA_PRESETS_")
@@ -627,6 +627,8 @@ function script.windowMain(dt)
                 showDummyLine()
                 showButton("Enable", nil, enableScript)
             end
+            showDummyLine()
+            ui.textWrapped("If you can't enable it from here then something isn't working right. Try double checking the instructions and re-installing the mod.")
         end
 
         return
