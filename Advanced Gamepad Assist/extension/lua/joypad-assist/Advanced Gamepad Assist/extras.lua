@@ -528,7 +528,11 @@ M.update = function(vData, uiData, absInitialSteering, dt)
         if ((not lastShiftWasDown) and vData.perfData.upshiftClutchFadeT ~= 0.0) then
             clutchFadeT = vData.perfData.upshiftClutchFadeT
         elseif (lastShiftWasDown and vData.perfData.downshiftClutchFadeT ~= 0.0) then
-            clutchFadeT = math.clamp(vData.perfData.downshiftClutchFadeT, 0.05, 0.2)
+            clutchFadeT = vData.perfData.downshiftClutchFadeT
+        end
+
+        if lastShiftWasDown then
+            clutchFadeT = math.clamp(clutchFadeT, 0.05, 0.2)
         end
 
         local baseClutchT = (clutchFadeT ~= 0.0) and lib.clamp01(tSinceShiftOver / clutchFadeT) or 1.0
