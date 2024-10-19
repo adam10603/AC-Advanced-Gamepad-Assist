@@ -35,7 +35,8 @@ local uiData = ac.connect{
     dampingStrength          = ac.StructItem.double(),
     maxSelfSteerAngle        = ac.StructItem.double(),
     countersteerResponse     = ac.StructItem.double(),
-    maxDynamicLimitReduction = ac.StructItem.double()
+    maxDynamicLimitReduction = ac.StructItem.double(), -- Stores 10x the value for legacy reasons
+    photoMode                = ac.StructItem.boolean()
 }
 
 -- Keys that are stored in a preset
@@ -93,6 +94,7 @@ local tooltips = {
     countersteerResponse     = "Higher = more effective countersteering, but also easier to overcorrect a slide and spin the other way if you're not careful.\n\nI would generally recommend to keep it under 50%.",
     maxDynamicLimitReduction = "How much should inward steering be restricted when the car oversteers, in order to maintain front grip.\n\nLow = being able to steer inward more when the car oversteers, meaning the front tires will scrub more if you steer into a slide.\n\nHigh = the steering backing off more when the car steps out.",
     builtInSettings          = "These directly adjust AC's own settings (just like the Controller Tweaks app), they are just here for convenience.",
+    photoMode                = "Allows you to leave the wheels turned when the car is parked by disabling re-centering.\nUseful for taking screenshots for example.",
     _gameGamma               = "Controls AC's own 'Steering gamma' setting.\n\nHigher gamma will make your analog stick less sensitive near the center.\n\nI would recommend around 120-160% depending on preference.",
     _gameDeadzone            = "Controls AC's own 'Steering deadzone' setting.\n\nDeadzone is used to avoid unintended inputs caused by stick-drift.\n\nShould be as low as you can go without causing unintended inputs when not touching the analog stick.",
     _gameRumble              = "Controls AC's own 'Rumble effects' setting."
@@ -700,6 +702,7 @@ function script.windowSettings(dt)
 
     uiData.graphSelection = showCompactDropdown("Graphs", "graphs", {"None", "Static", "Live"}, uiData.graphSelection, 0)
     uiData.keyboardMode = showCompactDropdown("Keyboard", "keyboardMode", {"Off", "On", "On (brake help)", "On (gas + brake help)"}, uiData.keyboardMode + 1, 0) - 1
+    showCheckbox("photoMode", "Photo mode", false, false, 0)
 
     showDummyLine(0.25)
 
