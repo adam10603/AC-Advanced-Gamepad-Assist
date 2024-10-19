@@ -48,7 +48,8 @@ local uiData = ac.connect{
     dampingStrength          = ac.StructItem.double(),
     maxSelfSteerAngle        = ac.StructItem.double(),
     countersteerResponse     = ac.StructItem.double(),
-    maxDynamicLimitReduction = ac.StructItem.double() -- Stores 10x the value for legacy reasons
+    maxDynamicLimitReduction = ac.StructItem.double(), -- Stores 10x the value for legacy reasons
+    photoMode                = ac.StructItem.boolean()
 }
 
 local firstInstall = false -- Set to true on the very first boot after installing the assist
@@ -79,7 +80,8 @@ local savedCfg = ac.storage({
     dampingStrength          = 0.37,
     maxSelfSteerAngle        = 90.0,
     countersteerResponse     = 0.2,
-    maxDynamicLimitReduction = 5.0
+    maxDynamicLimitReduction = 5.0,
+    photoMode                = false
 }, "AGA_")
 
 -- controls.ini stuff
@@ -153,6 +155,7 @@ ac.onSharedEvent("AGA_factoryReset", function()
     uiData.maxSelfSteerAngle        = 90.0
     uiData.countersteerResponse     = 0.2
     uiData.maxDynamicLimitReduction = 5.0
+    uiData.photoMode                = false
 
     onFirstInstall()
     ac.broadcastSharedEvent("AGA_reloadControlSettings")
@@ -197,6 +200,7 @@ uiData.dampingStrength          = savedCfg.dampingStrength
 uiData.maxSelfSteerAngle        = savedCfg.maxSelfSteerAngle
 uiData.countersteerResponse     = savedCfg.countersteerResponse
 uiData.maxDynamicLimitReduction = savedCfg.maxDynamicLimitReduction
+uiData.photoMode                = savedCfg.photoMode
 
 -- MAIN LOGIC =================================================================================
 
@@ -269,6 +273,7 @@ local function updateConfig()
     savedCfg.maxSelfSteerAngle        = uiData.maxSelfSteerAngle
     savedCfg.countersteerResponse     = uiData.countersteerResponse
     savedCfg.maxDynamicLimitReduction = uiData.maxDynamicLimitReduction
+    savedCfg.photoMode                = uiData.photoMode
 
     if math.abs(lastGameGamma - uiData._gameGamma) > 1e-6 then
         if setGameCfgValue("X360", "STEER_GAMMA", uiData._gameGamma) then
@@ -694,6 +699,10 @@ local function processInitialInput(vData, kbMode, steeringRateMult, extrasObj, d
         if (math.abs(rawSteer) < math.abs(steeringSmoother.state) and math.sign(rawSteer) == math.sign(steeringSmoother.state)) or (math.sign(rawSteer) ~= math.sign(steeringSmoother.state)) then
             centeringRate = (steeringRateMult * 0.5 + 0.25) / steeringRateMult
         end
+    end
+
+    if vData.localHVelLen < 0.5 and uiData.photoMode then
+        rawSteer = (math.abs(rawSteer) > math.abs(steeringSmoother.state) or math.sign(rawSteer) ~= math.sign(steeringSmoother.state)) and sanitizeSteeringInput(steeringSmoother.state + rawSteer * dt * 100.0) or steeringSmoother.state
     end
 
     uiData._rawSteer         = rawSteer
